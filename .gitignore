@@ -1,0 +1,45 @@
+# Build directories
+[Bb]uild/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# Solution directories
+Solutions/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# IDE files
+.vs/
+.vscode/
+*.swp
+*.swo
+CMakeSettings.json
+
+# Compiled files
+*.obj
+*.dll
+*.exe
+*.lib
+*.pdb
+*.ilk
+*.exp
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+!CMakeLists.txt
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

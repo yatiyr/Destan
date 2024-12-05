@@ -1,0 +1,2 @@
+# We add each module's folder
+add_subdirectory(Core)
