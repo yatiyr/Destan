@@ -1,23 +1,26 @@
-set(
-    GLOB_RECURSE SOURCES
+set(MODULE_NAME sandbox)
+
+file(GLOB_RECURSE SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
+)
 
-
-set(
-    GLOB_RECURSE HEADERS
+file(GLOB_RECURSE HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+)
 
-add_executable(sandbox ${SOURCES})
+add_executable(${MODULE_NAME} ${SOURCES} ${HEADERS})
 
-target_include_directories(
-    ${MODULE_NAME}
+target_include_directories(${MODULE_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<TARGET_PROPERTY:destan_engine,INTERFACE_INCLUDE_DIRECTORIES>        
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
-target_link_libraries(
+target_link_libraries(${MODULE_NAME}
     PRIVATE
-        destan_core)
+        destan_engine
+)

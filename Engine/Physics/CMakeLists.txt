@@ -1,5 +1,5 @@
-# Core module configuration
-set(MODULE_NAME destan_core)
+# Physics module configuration
+set(MODULE_NAME destan_physics)
 
 file(GLOB_RECURSE SOURCES 
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -13,17 +13,18 @@ file(GLOB_RECURSE HEADERS
 
 add_library(${MODULE_NAME} STATIC ${SOURCES} ${HEADERS})
 
-target_precompile_headers(${MODULE_NAME} 
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/core/destan_pch.h
-)
-
 target_include_directories(${MODULE_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        #Include'core module's includes
+        $<TARGET_PROPERTY:destan_core,INTERFACE_INCLUDE_DIRECTORIES>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+target_link_libraries(${MODULE_NAME} PUBLIC destan_core)
+
+target_precompile_headers(destan_physics REUSE_FROM destan_core)
 
 target_compile_definitions(${MODULE_NAME}
     PUBLIC
