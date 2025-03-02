@@ -2,7 +2,8 @@
 
 // Core headers
 #include <core/destan_pch.h>
-#include <core/destan.h>
+#include <core/defines.h>
+#include <core/logger.h>
 
 // Application & Entry Point
 // #include "core/application.h"
@@ -49,11 +50,11 @@ enum class Engine_Mode
 };
 
 #ifdef DESTAN_DEBUG
-    constexpr EngineMode CURRENT_MODE = Engine_Mode::DEBUG;
+    constexpr Engine_Mode CURRENT_MODE = Engine_Mode::DEBUG;
 #elif defined(DESTAN_RELEASE)
-    constexpr EngineMode CURRENT_MODE = Engine_Mode::RELEASE;
+    constexpr Engine_Mode CURRENT_MODE = Engine_Mode::RELEASE;
 #elif defined(DESTAN_SHIPPING)
-    constexpr EngineMode CURRENT_MODE = Engine_Mode::SHIPPING;
+    constexpr Engine_Mode CURRENT_MODE = Engine_Mode::SHIPPING;
 #endif
 
 } // namespace destan

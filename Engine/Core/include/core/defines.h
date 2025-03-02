@@ -107,15 +107,6 @@
     #define DESTAN_DEBUGBREAK()
 #endif
 
-// Macros for assertions
-#ifdef DESTAN_ENABLE_ASSERTS
-    #define DESTAN_ASSERT(x, ...) { if(!(x)) { DESTAN_ERROR("Assertion Failed: {0}", __VA_ARGS__); DESTAN_DEBUGBREAK(); } }
-    #define DESTAN_CORE_ASSERT(x, ...) { if(!(x)) { DESTAN_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__); DESTAN_DEBUGBREAK(); } }
-#else
-    #define DESTAN_ASSERT(x, ...)
-    #define DESTAN_CORE_ASSERT(x, ...)
-#endif
-
 // Macros for bit manipulation
 #define BIT(x) (1 << (x))
 #define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
@@ -152,6 +143,24 @@ namespace destan {
     
     template<typename T>
     using WeakRef = std::weak_ptr<T>;
+
+	template<typename T, typename U>
+	using Pair = std::pair<T, U>;
+
+	// Multithreaded TODO_EREN: Add own multithreaded wrappers in the
+    // future
+    using Mutex = std::mutex;
+	using ConditionVariable = std::condition_variable;
+	using Thread = std::thread;
+    template<typename T>
+	using LockGuard = std::lock_guard<T>;
+    template<typename T>
+	using UniqueLock = std::unique_lock<T>;
+    template<typename T>
+	using SharedLock = std::shared_lock<T>;
+
+    template<typename T>
+	using Atomic = std::atomic<T>;
 
     // SIMD vector types (platform specific)
     #if defined(DESTAN_SIMD_AVX512)

@@ -44,8 +44,21 @@
 #include <iostream>
 #include <filesystem>
 
+// Destan Logger
+#include <core/logger.h>
+
+
+// Destan Core Includes TODO_EREN: Wrappers!
+#include <core/containers/destan_list.h>
+#include <core/containers/destan_queue.h>
+#include <core/containers/destan_stack.h>
+#include <core/containers/destan_unordered_map.h>
+#include <core/containers/destan_vector.h>
+#include <core/containers/destan_string.h>
+
 // Platform specific
 #ifdef _WIN32
+    #define NOMINMAX
     #include <Windows.h>
     #ifdef CreateWindow
         #undef CreateWindow
