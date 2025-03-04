@@ -115,52 +115,49 @@
 
 // Basic type definitions
 namespace destan {
-    // Integer types
-    using i8  = int8_t;
-    using i16 = int16_t;
-    using i32 = int32_t;
-    using i64 = int64_t;
-    
-    using u8  = uint8_t;
-    using u16 = uint16_t;
-    using u32 = uint32_t;
-    using u64 = uint64_t;
-    
-    // Floating point types
-    using f32 = float;
-    using f64 = double;
-    
-    // String types
-    using String = std::string;
-    using StringView = std::string_view;
-    
-    // Smart pointer aliases
-    template<typename T>
-    using Scope = std::unique_ptr<T>;
-    
-    template<typename T>
-    using Ref = std::shared_ptr<T>;
-    
-    template<typename T>
-    using WeakRef = std::weak_ptr<T>;
 
-	template<typename T, typename U>
-	using Pair = std::pair<T, U>;
+    // All types used in the engine are defined here
+	// their names are similar to the standard library
+	// but with destan_ prefix
 
-	// Multithreaded TODO_EREN: Add own multithreaded wrappers in the
-    // future
-    using Mutex = std::mutex;
-	using ConditionVariable = std::condition_variable;
-	using Thread = std::thread;
-    template<typename T>
-	using LockGuard = std::lock_guard<T>;
-    template<typename T>
-	using UniqueLock = std::unique_lock<T>;
-    template<typename T>
-	using SharedLock = std::shared_lock<T>;
+    // Unsigned Integer types
+	using destan_u8 = uint8_t;
+	using destan_u16 = uint16_t;
+	using destan_u32 = uint32_t;
+	using destan_u64 = uint64_t;
 
-    template<typename T>
-	using Atomic = std::atomic<T>;
+    // Integer Types
+	using destan_i8 = int8_t;
+	using destan_i16 = int16_t;
+	using destan_i32 = int32_t;
+	using destan_i64 = int64_t;
+
+	// Floating point types
+	using destan_f32 = float;
+	using destan_f64 = double;
+
+    // Character tyoes
+	using destan_char = char;
+	using destan_wchar = wchar_t;
+	using destan_char8 = char8_t;
+	using destan_char16 = char16_t;
+	using destan_char32 = char32_t;
+
+	// Const character types
+	using destan_const_char = const char;
+	using destan_const_wchar = const wchar_t;
+	using destan_const_char8 = const char8_t;
+	using destan_const_char16 = const char16_t;
+	using destan_const_char32 = const char32_t;
+
+    // Boolean type
+	using destan_bool = bool;
+
+	// Pointer types
+	using destan_vptr = void*;
+	using destan_cvptr = const void*;
+	using destan_uiptr = uintptr_t;
+	using destan_ciptr = const uintptr_t;          
 
     // SIMD vector types (platform specific)
     #if defined(DESTAN_SIMD_AVX512)
