@@ -47,15 +47,6 @@
 // Destan Logger
 #include <core/logger.h>
 
-
-// Destan Core Includes TODO_EREN: Wrappers!
-#include <core/containers/destan_list.h>
-#include <core/containers/destan_queue.h>
-#include <core/containers/destan_stack.h>
-#include <core/containers/destan_unordered_map.h>
-#include <core/containers/destan_vector.h>
-#include <core/containers/destan_string.h>
-
 // Platform specific
 #ifdef _WIN32
     #define NOMINMAX
@@ -67,4 +58,17 @@
     #include <unistd.h>
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
+#endif
+
+#ifdef DESTAN_PLATFORM_WINDOWS
+#include <Windows.h>
+#elif defined(DESTAN_PLATFORM_LINUX)
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#elif defined(DESTAN_PLATFORM_MACOS)
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <mach/vm_statistics.h>
 #endif

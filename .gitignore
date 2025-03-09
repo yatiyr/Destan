@@ -5,6 +5,7 @@
 [Rr]elease/
 x64/
 x86/
+[Oo]bj/
 
 # Solution directories
 Solutions/

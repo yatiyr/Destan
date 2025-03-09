@@ -7,6 +7,8 @@
 #include <condition_variable>
 #include <thread>
 #include <format>
+#include <algorithm>
+#include <utility>
 
 namespace destan::core
 {
@@ -78,7 +80,7 @@ namespace destan::core
 
 		void Process_Logs();
 
-		std::queue<destan::Pair<Log_Level, destan::String>> m_log_queue;
+		std::queue<std::pair<Log_Level, std::string>> m_log_queue;
 		std::mutex m_mutex;
 		std::condition_variable m_condition_variable;
 		std::thread m_log_thread;

@@ -72,6 +72,14 @@ namespace destan::core::memory
 		}
 
 		/**
+		 * Deallocates a block, returning it to the pool
+		 *
+		 * @param ptr Pointer to the block to deallocate
+		 * @return True if deallocation was successful, false if ptr was invalid
+		 */
+		bool Deallocate(void* ptr);
+
+		/**
 		 * Destroys an object and deallocates its memory
 		 *
 		 * @tparam T Type of object to destroy
@@ -164,7 +172,7 @@ namespace destan::core::memory
 		/**
 		 * Dumps the current state of the pool for debugging
 		 */
-		void Dump_Stats() const;
+		void Dump_Stats();
 #endif
 
 	private:

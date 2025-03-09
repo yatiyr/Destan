@@ -18,9 +18,22 @@ namespace destan::core::memory
             }
             m_name[name_length] = '\0';
         }
+        else
+        {
+            // Default name if none provided
+            const char* default_name = "Pool";
+            destan_u64 i = 0;
+            while (default_name[i] && i < MAX_NAME_LENGTH - 1)
+            {
+                m_name[i] = default_name[i];
+                i++;
+            }
+            m_name[i] = '\0';
+        }
 
         // Allocate the memory block using our core memory system
         m_memory_block = Memory::Malloc(size_bytes, CACHE_LINE_SIZE);
+        DESTAN_ASSERT(m_memory_block, "Failed to allocate memory for Pool Allocator");
 
         // Initialize pointers
         m_start_pos = static_cast<destan_char*>(m_memory_block);

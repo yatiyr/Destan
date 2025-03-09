@@ -1,8 +1,0 @@
-# We add each module's folder
-add_subdirectory(Core)
-add_subdirectory(Physics)
-add_subdirectory(Rendering)
-add_subdirectory(Scripting)
-
-# This module adds up everything above
-add_subdirectory(EngineModule)
