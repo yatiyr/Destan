@@ -21,6 +21,7 @@ project "Physics"
     {
         "include/**.h",
         "include/**.hpp",
+        "include/**.inl",
         "src/**.cpp",
         "src/**.c",
         "src/**.hpp"

@@ -17,8 +17,11 @@ project "DestanSandbox"
     pchsource "%{wks.location}/Engine/Core/src/destan_pch.cpp"
 
     files {
-        "src/**.h",
+        "include/**.h",
+        "include/**.hpp",
+        "include/**.inl",
         "src/**.cpp",
+        "src/**.c",
         "src/**.hpp"
     }
 
