@@ -1,5 +1,5 @@
-project "MemoryTests"
-    location "%{wks.location}/Test/MemoryTests"
+project "LoggerTests"
+    location "%{wks.location}/Test/LoggerTests"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++23"

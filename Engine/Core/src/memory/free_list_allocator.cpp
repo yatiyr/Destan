@@ -1076,7 +1076,7 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO(ss.str());
+        DESTAN_LOG_INFO("{}", ss.str());
 
         Unlock();
     }
@@ -1129,7 +1129,7 @@ namespace destan::core::memory
         ss << "]" << std::endl;
         ss << "Legend: # = Allocated, . = Free" << std::endl;
 
-        DESTAN_LOG_INFO(ss.str());
+        DESTAN_LOG_INFO("{}", ss.str());
 
         Unlock();
     }

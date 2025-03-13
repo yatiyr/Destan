@@ -9,6 +9,7 @@
 #include <format>
 #include <algorithm>
 #include <utility>
+#include <tuple>
 
 namespace destan::core
 {
@@ -38,40 +39,40 @@ namespace destan::core
 		void Log(Log_Level level, const std::string& message);
 
 		template<typename... Args>
-		void Log_Format(Log_Level level, const std::string_view format_string, Args&&... args)
+		void Log_Format(Log_Level level, std::format_string<Args...> fmt, Args&&... args)
 		{
-			destan::String formatted_message = std::format(format_string, std::forward<Args>(args)...);
-			Log(level, formatted_message);)
+			std::string formatted_message = std::format(fmt, std::forward<Args>(args)...);
+			Log(level, formatted_message);
 		}
 
 		template<typename... Args>
-		static void Trace(const std::string_view format_string, Args&&... args)
+		static void Trace(std::format_string<Args...> fmt, Args&&... args)
 		{
-			Get_Instance().Log_Format(Log_Level::TRACE, format_string, std::forward<Args>(args)...);
+			Get_Instance().Log_Format(Log_Level::TRACE, fmt, std::forward<Args>(args)...);
 		}
 
 		template<typename... Args>
-		static void Info(const std::string_view format_string, Args&&... args)
+		static void Info(std::format_string<Args...> fmt, Args&&... args)
 		{
-			Get_Instance().Log_Format(Log_Level::INFO, format_string, std::forward<Args>(args)...);
+			Get_Instance().Log_Format(Log_Level::INFO, fmt, std::forward<Args>(args)...);
 		}
 
 		template<typename... Args>
-		static void Warn(const std::string_view format_string, Args&&... args)
+		static void Warn(std::format_string<Args...> fmt, Args&&... args)
 		{
-			Get_Instance().Log_Format(Log_Level::WARN, format_string, std::forward<Args>(args)...);
+			Get_Instance().Log_Format(Log_Level::WARN, fmt, std::forward<Args>(args)...);
 		}
 
 		template<typename... Args>
-		static void Error(const std::string_view format_string, Args&&... args)
+		static void Error(std::format_string<Args...> fmt, Args&&... args)
 		{
-			Get_Instance().Log_Format(Log_Level::ERR, format_string, std::forward<Args>(args)...);
+			Get_Instance().Log_Format(Log_Level::ERR, fmt, std::forward<Args>(args)...);
 		}
 
 		template<typename... Args>
-		static void Fatal(const std::string_view format_string, Args&&... args)
+		static void Fatal(std::format_string<Args...> fmt, Args&&... args)
 		{
-			Get_Instance().Log_Format(Log_Level::FATAL, format_string, Args&&... args);
+			Get_Instance().Log_Format(Log_Level::FATAL, fmt, std::forward<Args>(args)...);
 		}
 
 	private:

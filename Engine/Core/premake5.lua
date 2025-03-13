@@ -8,7 +8,7 @@ project "Core"
     targetdir("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
     objdir("%{wks.location}/obj/" .. outputdir .. "/%{prj.name}")
 
-    pchheader "include/core/destan_pch.h"
+    pchheader "core/destan_pch.h"
     pchsource "src/destan_pch.cpp"
 
     files

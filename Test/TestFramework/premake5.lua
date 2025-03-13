@@ -1,6 +1,6 @@
-project "MemoryTests"
-    location "%{wks.location}/Test/MemoryTests"
-    kind "ConsoleApp"
+project "TestFramework"
+    location "%{wks.location}/Test/TestFramework"
+    kind "StaticLib"
     language "C++"
     cppdialect "C++23"
     staticruntime "off"
@@ -10,22 +10,22 @@ project "MemoryTests"
 
     files
     {
-        "src/**.h",
+        "include/**.h",
+        "include/**.hpp",
         "src/**.cpp",
-        "src/**.hpp",
-        "main.cpp"
+        "src/**.c",
+        "src/**.hpp"
     }
 
     includedirs
     {
-        "%{wks.location}/Test/TestFramework/include",
+        "include",
         "%{wks.location}/Engine/Core/include"
     }
 
     links
     {
-        "Core",
-        "TestFramework"
+        "Core"
     }
 
     filter "system:windows"

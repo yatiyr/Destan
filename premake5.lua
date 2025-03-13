@@ -60,6 +60,15 @@ group "Engine"
     include "Engine/EngineModule"
 group ""
 
+
+-- Include Test projects
+group "Tests"
+    include "Test/TestFramework"
+    include "Test/MemoryTests"
+    include "Test/ContainerTests"
+    include "Test/LoggerTests"
+group ""
+
 -- Include the editor project
 group "Tools"
     include "Tools/Editor"

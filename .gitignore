@@ -6,6 +6,8 @@
 x64/
 x86/
 [Oo]bj/
+bin/
+bin-int/
 
 # Solution directories
 Solutions/

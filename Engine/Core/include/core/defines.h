@@ -3,7 +3,6 @@
 
 // Detect platforms
 #if defined(_WIN32)
-    #define DESTAN_PLATFORM_WINDOWS
     #ifdef _WIN64
         #define DESTAN_PLATFORM_WINDOWS_64
     #else

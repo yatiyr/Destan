@@ -438,7 +438,7 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO(ss.str());
+        DESTAN_LOG_INFO("{}", ss.str());
 
         Unlock();
     }

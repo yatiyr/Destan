@@ -502,7 +502,7 @@ namespace destan::core::memory
 			ss << "  Active Allocations: " << s_thread_local_allocator->allocations << std::endl;
 		}
 		ss << "=================================" << std::endl;
-		DESTAN_LOG_INFO(ss.str());
+		DESTAN_LOG_INFO("{}", ss.str());
 	}
 
 	void Memory::Check_Memory_Leaks()
