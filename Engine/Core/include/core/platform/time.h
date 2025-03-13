@@ -16,15 +16,15 @@ namespace destan::core
     {
     public:
         static float Get_Time();
-        static u64 Get_Time_Microseconds();
-        static void Sleep(u32 milliseconds);
+        static destan_u64 Get_Time_Microseconds();
+        static void Sleep(destan_u32 milliseconds);
 
         // Platform specific implementations
         static void Initialize();
         static void Shutdown();
     private:
-        inline static f64 s_frequency = 0.0;
-        inline static u64 s_start_time = 0;
+        inline static destan_f64 s_frequency = 0.0;
+        inline static destan_u64 s_start_time = 0;
 
         #ifdef DESTAN_PLATFORM_MACOS
             inline static mach_timebase_info_data_s_timebase_info = {0, 0};
@@ -44,14 +44,14 @@ namespace destan::core
             return static_cast<float>((current.QuadPart - s_start_time) * s_frequency);        
         }
 
-        inline u64 Platform_Time::Get_Time_Microseconds()
+        inline destan_u64 Platform_Time::Get_Time_Microseconds()
         {
             LARGE_INTEGER current;
             QueryPerformanceCounter(&current);
-            return static_cast<u64>((current.QuadPart - s_start_time) * s_frequency * 1000000.0);
+            return static_cast<destan_u64>((current.QuadPart - s_start_time) * s_frequency * 1000000.0);
         }
 
-        inline void Platform_Time::Sleep(u32 milliseconds)
+        inline void Platform_Time::Sleep(destan_u32 milliseconds)
         {
             Sleep(milliseconds);
         }
@@ -60,7 +60,7 @@ namespace destan::core
         {
             LARGE_INTEGER frequency;
             QueryPerformanceCounter(&frequency);
-            s_frequency = 1.0 / static_cast<f64>(frequency.QuadPart);
+            s_frequency = 1.0 / static_cast<destan_f64>(frequency.QuadPart);
 
             LARGE_INTEGER start;
             QueryPerformanceCounter(&start);
@@ -79,15 +79,15 @@ namespace destan::core
             struct timespec current;
             clock_gettime(CLOCK_MONOTONIC, &current);
             u64 time = current.tv_sec * 1000000000ull + current.tv_nsec;
-            return static_cast<float>(time - s_start_time) * s_frequency;
+            return static_cast<destan_f32>(time - s_start_time) * s_frequency;
         }
 
-        inline u64 Platform_Time::Get_Time_Microseconds()
+        inline destan_u64 Platform_Time::Get_Time_Microseconds()
         {
             struct timespec current;
             clock_gettime(CLOCK_MONOTONIC, &current);
             u64 time = current.tv_sec * 1000000000ull + current.tv_nsec;
-            return static_cast<u64>((time - s_start_time) * s_frequency * 1000.0);
+            return static_cast<destan_u64>((time - s_start_time) * s_frequency * 1000.0);
         }
 
         inline void Platform_Time::Sleep(u32 milliseconds)
@@ -114,19 +114,19 @@ namespace destan::core
 
     #elif defined(DESTAN_PLATFORM_MACOS)
 
-        inline float Platform_Time::Get_Time()
+        inline destan_f32 Platform_Time::Get_Time()
         {
             uint64_t current = mach_absolute_time();
-            return static_cast<float>((current - s_start_time) * s_timebase_info.numer * s_frequency / s_timebase_info.denom);
+            return static_cast<destan_f32>((current - s_start_time) * s_timebase_info.numer * s_frequency / s_timebase_info.denom);
         }
 
-        inline u64 Platform_Time::Get_Time_Microseconds()
+        inline destan_u64 Platform_Time::Get_Time_Microseconds()
         {
             uint64_t current = mach_absolute_time();
-            return static_cast<u64>((current - s_start_time) * s_timebase_info.numer / s_timebase_info.denom) / 1000;
+            return static_cast<destan_u64>((current - s_start_time) * s_timebase_info.numer / s_timebase_info.denom) / 1000;
         }
 
-        inline void Platform_Time::Sleep(u32 milliseconds)
+        inline void Platform_Time::Sleep(destan_u32 milliseconds)
         {
             struct timespec ts;
             ts.tv_sec = milliseconds / 1000;
