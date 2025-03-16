@@ -1,5 +1,4 @@
 #pragma once
-#include <core/destan_pch.h>
 
 // Detect platforms
 #if defined(_WIN32)

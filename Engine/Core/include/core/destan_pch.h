@@ -45,7 +45,7 @@
 #include <filesystem>
 
 // Destan Logger
-#include <core/logger.h>
+#include <core/logger/logger.h>
 
 // Platform specific
 #ifdef _WIN32

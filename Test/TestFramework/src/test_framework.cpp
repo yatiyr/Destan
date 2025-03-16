@@ -1,3 +1,4 @@
+#include <core/destan_pch.h>
 #include <test_framework.h>
 
 // The test framework is mostly implemented in the header

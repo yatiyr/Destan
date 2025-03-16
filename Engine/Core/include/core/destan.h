@@ -1,9 +1,8 @@
 #pragma once
 
 // Core headers
-#include <core/destan_pch.h>
 #include <core/defines.h>
-#include <core/logger.h>
+#include <core/logger/logger.h>
 
 // Application & Entry Point
 // #include "core/application.h"

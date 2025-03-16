@@ -28,6 +28,18 @@ project "ContainerTests"
         "TestFramework"
     }
 
+    -- Define precompiled header for C++ files only
+    filter "files:src/**.cpp"
+        pchheader "core/destan_pch.h"
+        pchsource "%{wks.location}/Engine/Core/src/destan_pch.cpp"
+
+    -- Explicitly disable PCH for header files
+    filter "files:**.h or **.hpp or **.inl"
+        flags { "NoPCH" }
+        
+    -- Reset filter for subsequent rules
+    filter {}  
+
     filter "system:windows"
         systemversion "latest"
         defines

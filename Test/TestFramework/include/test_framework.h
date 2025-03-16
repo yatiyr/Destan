@@ -1,6 +1,6 @@
 #pragma once
 #include <core/destan_pch.h>
-#include <core/logger.h>
+#include <core/logger/logger.h>
 #include <functional>
 #include <string>
 #include <vector>
@@ -91,6 +91,41 @@ namespace destan::test
         std::string m_name;
         std::vector<Test_Case> m_tests;
     };
+
+    // Test runner utility
+    class Test_Runner
+    {
+    public:
+        static int Run_Tests(std::function<bool()> test_func)
+        {
+
+            bool success = false;
+
+            try
+            {
+                // Run the tests
+                success = test_func();
+            }
+            catch (const std::exception& e)
+            {
+                DESTAN_LOG_ERROR("Exception caught during tests: {0}", e.what());
+                success = false;
+            }
+            catch (...)
+            {
+                DESTAN_LOG_ERROR("Unknown exception caught during tests");
+                success = false;
+            }
+
+            // Allow logger to finish writing
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            // Shutdown test environment
+            Shutdown_Test_Environment();
+
+            return success ? 0 : 1;
+        }
+    };
 }
 
 // Convenient macros for test creation
@@ -136,6 +171,27 @@ namespace destan::test
 #define DESTAN_EXPECT_GE(a, b) \
     if (!((a) >= (b))) { \
         DESTAN_LOG_ERROR("  Assertion failed: " #a " >= " #b " (values: {0} < {1})", a, b); \
+        return false; \
+    }
+
+#define DESTAN_EXPECT_FLOAT_EQ(a, b) \
+    if (std::abs((a) - (b)) > std::numeric_limits<float>::epsilon()) { \
+        DESTAN_LOG_ERROR("  Assertion failed: " #a " == " #b " (values: {0} != {1}, diff: {2}, epsilon: {3})", \
+            (a), (b), std::abs((a) - (b)), std::numeric_limits<float>::epsilon()); \
+        return false; \
+    }
+
+#define DESTAN_EXPECT_DOUBLE_EQ(a, b) \
+    if (std::abs((a) - (b)) > std::numeric_limits<double>::epsilon()) { \
+        DESTAN_LOG_ERROR("  Assertion failed: " #a " == " #b " (values: {0} != {1}, diff: {2}, epsilon: {3})", \
+            (a), (b), std::abs((a) - (b)), std::numeric_limits<double>::epsilon()); \
+        return false; \
+    }
+
+#define DESTAN_EXPECT_NEAR(a, b, epsilon) \
+    if (std::abs((a) - (b)) > (epsilon)) { \
+        DESTAN_LOG_ERROR("  Assertion failed: |" #a " - " #b "| <= " #epsilon " (values: {0} and {1}, diff: {2}, epsilon: {3})", \
+            (a), (b), std::abs((a) - (b)), (epsilon)); \
         return false; \
     }
 
