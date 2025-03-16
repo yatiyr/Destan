@@ -9,6 +9,9 @@ x86/
 bin/
 bin-int/
 
+# Log files
+*.log
+
 # Solution directories
 Solutions/
 *.sln
