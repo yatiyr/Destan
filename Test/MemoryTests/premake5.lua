@@ -10,6 +10,9 @@ project "MemoryTests"
     
     files
     {
+        "include/**.h",
+        "include/**.hpp",
+        "include/**.inl",        
         "src/**.h",
         "src/**.cpp",
         "src/**.hpp",
@@ -18,6 +21,7 @@ project "MemoryTests"
 
     includedirs
     {
+        "include",
         "%{wks.location}/Test/TestFramework/include",
         "%{wks.location}/Engine/Core/include"
     }

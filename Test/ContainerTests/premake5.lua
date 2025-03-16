@@ -18,6 +18,7 @@ project "ContainerTests"
 
     includedirs
     {
+        "include",
         "%{wks.location}/Test/TestFramework/include",
         "%{wks.location}/Engine/Core/include"
     }

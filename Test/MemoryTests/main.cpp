@@ -3,6 +3,8 @@
 #include <core/memory/memory.h>
 #include <test_framework.h>
 
+#include <arena_allocator_tests.h>
+
 using namespace destan::core::memory;
 using namespace destan::test;
 using namespace destan;
@@ -197,6 +199,8 @@ int main(int argc, char** argv)
 		{
 			return Test_Memory_Stress();
 		});
+
+		destan::test::arena_allocator::Add_All_Tests(memory_tests);
 
 		return memory_tests.Run_All();
 	});

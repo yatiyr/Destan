@@ -1,6 +1,5 @@
 #include <core/destan_pch.h>
 #include <core/logger/logger.h>
-#include <core/logger/console_format.h>
 #include <test_framework.h>
 #include <fstream>
 #include <sstream>
@@ -77,6 +76,7 @@ int main(int argc, char** argv)
         DESTAN_TEST(logger_tests, "Basic Logging")
         {
             // Log a simple message
+            destan::core::Logger::Get_Instance().Set_File_Output_Mode(true);
             DESTAN_LOG_INFO("Basic logging test message");
 
             // Allow time for logging thread to process
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
             // Read log file and check contents
             std::string log_content = Read_Log_File();
             DESTAN_EXPECT(Log_Contains(log_content, "Basic logging test message"));
-
+            destan::core::Logger::Get_Instance().Set_File_Output_Mode(false);
             return true;
         });
 
@@ -93,6 +93,7 @@ int main(int argc, char** argv)
         DESTAN_TEST(logger_tests, "Log Levels")
         {
             // Test each log level
+            destan::core::Logger::Get_Instance().Set_File_Output_Mode(true);
             DESTAN_LOG_TRACE("This is a trace message");
             DESTAN_LOG_INFO("This is an info message");
             DESTAN_LOG_WARN("This is a warning message");
@@ -118,7 +119,7 @@ int main(int argc, char** argv)
             DESTAN_EXPECT(Log_Contains(log_content, "[WARN]"));
             DESTAN_EXPECT(Log_Contains(log_content, "[ERR]"));
             DESTAN_EXPECT(Log_Contains(log_content, "[FATAL]"));
-
+            destan::core::Logger::Get_Instance().Set_File_Output_Mode(false);
             return true;
         });
 

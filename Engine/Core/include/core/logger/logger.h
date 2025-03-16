@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <utility>
 #include <regex>
+#include <core/logger/console_format.h>
 
 namespace destan::core
 {
