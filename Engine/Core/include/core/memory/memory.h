@@ -36,7 +36,7 @@ namespace destan::core::memory
 		static bool Is_Initialized();
 
 		// Basic allocation functions
-		static void* Malloc(destan_u64 size, destan_u64 alignment = DEFAULT_ALIGNMENT);
+		static void* Malloc(destan_u64 size, destan_u64 alignment = DEFAULT_ALIGNMENT, bool thread_local_allocation = false);
 		static void Free(void* ptr);
 
 		// Advanced memory operations
@@ -65,7 +65,7 @@ namespace destan::core::memory
 
 		// Thread-local allocator access
 		static void* Thread_Local_Malloc(destan_u64 size, destan_u64 alignment = DEFAULT_ALIGNMENT);
-		static void Thread_Local_Free(void* ptr);
+		static bool Thread_Local_Free(void* ptr);
 
 		// Tracking statistics (lock-free)
 		static destan_u64 Get_Total_Allocated();

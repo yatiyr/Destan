@@ -60,6 +60,24 @@ namespace destan::core
         void Stop();
 
         /**
+        * Set the synchronous mode of the logger. For debugging purposes
+        * we need to use this mode to see log results better.
+        */
+        void Set_Synchronous_Mode(bool synchronous_mode)
+        {
+			m_synchronous_mode = synchronous_mode;
+        }
+
+        /**
+		* Set the file output mode of the logger. If this mode is enabled,
+		* the logger will write logs to a file in addition to the console.
+        */
+        void Set_File_Output_Mode(bool file_output_mode)
+        {
+            m_file_output_mode = file_output_mode;
+        }
+
+        /**
          * Log a message with the specified log level
          * @param level The severity level
          * @param message The message to log
@@ -186,6 +204,8 @@ namespace destan::core
         std::mutex m_mutex;
         std::condition_variable m_condition_variable;
         std::thread m_log_thread;
+        bool m_synchronous_mode = false;
+        bool m_file_output_mode = false;
         bool m_running;
     };
 }

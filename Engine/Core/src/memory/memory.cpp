@@ -110,7 +110,7 @@ namespace destan::core::memory
 		// We don't actually free anything from thread-local storage
 		// This is a key optimization for high-performance - we reuse the same memory
 		// within the tread. This approach is commonly used in high-performance systems
-		void Free(void* ptr)
+		bool Free(void* ptr)
 		{
 			// Check if the pointer is within any of the blocks
 			for (destan_u64 i = 0; i < block_count; i++)
@@ -119,11 +119,11 @@ namespace destan::core::memory
 				{
 					// Do nothing - we don't actually free anything
 					allocations--;
-					return;
+					return true;
 				}
 			}
 
-			DESTAN_LOG_ERROR("Trying to free a pointer that was not allocated by this thread!");
+			return false;
 		}
 
 		// Reset all blocks (keep them allocated but mark as empty)
@@ -192,7 +192,7 @@ namespace destan::core::memory
 		return s_init_state.load(std::memory_order_relaxed) == Memory_Init_State::Initialized;
 	}
 
-	void* Memory::Malloc(destan_u64 size, destan_u64 alignment)
+	void* Memory::Malloc(destan_u64 size, destan_u64 alignment, bool thread_local_allocation)
 	{
 		// Validate inputs
 		DESTAN_ASSERT(size > 0, "Malloc called with size = 0!");
@@ -219,64 +219,77 @@ namespace destan::core::memory
 
 		// First, try thread-local allocator for small allocations
 		// This is our fast path with no locks
-		void* ptr = Thread_Local_Malloc(size, alignment);
-		if (ptr)
+		if (thread_local_allocation)
 		{
-			// Update global statistics atomically
-			s_total_allocated.fetch_add(size, std::memory_order_relaxed);
-			s_allocation_count.fetch_add(1, std::memory_order_relaxed);
-			return ptr;
+			void* ptr = Thread_Local_Malloc(size, alignment);
+			if (ptr)
+			{
+				// Update global statistics atomically
+				s_allocation_count.fetch_add(1, std::memory_order_relaxed);
+				return ptr;
+			}
 		}
 
 #ifdef DESTAN_DEBUG
-		// In debug mode, add space for header and footer
+		// Calculate space needed for our control structures
 		const destan_u64 header_size = sizeof(Allocation_Header);
-		const destan_u64 footer_size = sizeof(destan_u32); // Guard pattern at the end
+		const destan_u64 footer_size = sizeof(destan_u32);
 
-		// Calculate total size with alignment considerations
-		const destan_u64 total_size = header_size + Align_Size(size, alignment) + footer_size;
+		// We need to store the original pointer returned by malloc
+		// so we can free it correctly later
+		const destan_u64 ptr_size = sizeof(void*);
 
-		// Allocate memory block
-		void* memory_block = std::malloc(total_size);
-		if (!memory_block)
-		{
-			DESTAN_LOG_ERROR("Failed to allocate memory!");
-			return nullptr;
-		}
+		// Total overhead for all control structures
+		const destan_u64 total_overhead = header_size + footer_size + ptr_size;
 
-		// Prepare the header
-		Allocation_Header* header = reinterpret_cast<Allocation_Header*>(memory_block);
+		// Calculate total size including alignment padding
+		const destan_u64 total_size = size + total_overhead + alignment;
+
+		// Allocate the raw block
+		void* raw_block = std::malloc(total_size);
+		if (!raw_block) return nullptr;
+
+		// Calculate aligned user data address
+		char* user_data = reinterpret_cast<char*>(raw_block) + header_size + ptr_size;
+		user_data = reinterpret_cast<destan_char*>(
+			Align_Size(reinterpret_cast<destan_uiptr>(user_data), alignment)
+			);
+
+		// Calculate where to store the header (right before the pointer storage)
+		Allocation_Header* header = reinterpret_cast<Allocation_Header*>(
+			user_data - ptr_size - header_size
+			);
+
+		// Store the original malloc pointer right before the user data
+		void** original_ptr_storage = reinterpret_cast<void**>(user_data - ptr_size);
+		*original_ptr_storage = raw_block;
+
+		// Initialize the header
 		header->size = size;
 		header->alignment = static_cast<destan_u32>(alignment);
 		header->file = ""; // Will be filled by Malloc_Debug if called
-		header->line = 0; // Will be filled by Malloc_Debug if called
+		header->line = 0;  // Will be filled by Malloc_Debug if called
 		header->allocation_id = s_next_allocation_id.fetch_add(1, std::memory_order_relaxed);
 		header->guard_value = Allocation_Header::GUARD_PATTERN;
 
-		// Calculate aligned user pointer
-		void* user_ptr = reinterpret_cast<void*>(
-			Align_Size(reinterpret_cast<destan_uiptr>(header) + header_size, alignment));
-
-		// Prepare the footer
-		destan_u32* footer = reinterpret_cast<destan_u32*>(
-			reinterpret_cast<destan_u8*>(user_ptr) + size);
+		// Set up the footer
+		destan_u32* footer = reinterpret_cast<destan_u32*>(user_data + size);
 		*footer = FOOTER_GUARD_PATTERN;
 
-#else
-		// In release mode, just use aligned_alloc or equivalent
-		void* user_ptr = std::aligned_alloc(alignment, Align_Size(size, alignment));
-		if (!user_ptr)
-		{
-			DESTAN_LOG_ERROR("Failed to allocate memory!");
-			return nullptr;
-		}
-#endif
-
-		// Update statistics using atomics for lock-free operations
+		// Update statistics
 		s_total_allocated.fetch_add(size, std::memory_order_relaxed);
 		s_allocation_count.fetch_add(1, std::memory_order_relaxed);
 
-		return user_ptr;
+		return user_data;
+#else
+		// In release mode, use aligned_alloc
+		void* ptr = std::aligned_alloc(alignment, Align_Size(size, alignment));
+		if (ptr) {
+			s_total_allocated.fetch_add(size, std::memory_order_relaxed);
+			s_allocation_count.fetch_add(1, std::memory_order_relaxed);
+		}
+		return ptr;
+#endif
 	}
 
 	void Memory::Free(void* ptr)
@@ -287,49 +300,50 @@ namespace destan::core::memory
 		}
 
 		// Try thread-local free first
-		Thread_Local_Free(ptr);
-
-#ifdef DESTAN_DEBUG		
-		// Get the header from the user pointer
-		Allocation_Header* header = Get_Header(ptr);
-
-		// If not found in thread-local storage and not a valid header,
-		// it might be from a different allocator or corrupted
-		if (!header)
+		if (Thread_Local_Free(ptr))
 		{
-			DESTAN_LOG_ERROR("Trying to free a pointer that was not allocated by this allocator!");
 			return;
 		}
 
+
+#ifdef DESTAN_DEBUG
+		// The original malloc pointer is stored right before the user data
+		void** original_ptr_storage = reinterpret_cast<void**>(
+			reinterpret_cast<destan_char*>(ptr) - sizeof(void*)
+			);
+		void* original_ptr = *original_ptr_storage;
+
+		// The header is right before the pointer storage
+		Allocation_Header* header = reinterpret_cast<Allocation_Header*>(
+			reinterpret_cast<destan_char*>(original_ptr_storage) - sizeof(Allocation_Header)
+			);
+
 		// Validate the header
-		if (!Validate_Header(header))
-		{
-			DESTAN_LOG_ERROR("Memory corruption detected while freeing the memory at {0}!", ptr);
+		if (header->guard_value != Allocation_Header::GUARD_PATTERN) {
+			DESTAN_LOG_ERROR("Memory corruption detected in header while freeing {0}!", ptr);
+			// Still attempt to free to avoid leaks
 		}
 
 		// Validate the footer
-		destan_u32* footer = reinterpret_cast<destan_u32*>(reinterpret_cast<destan_u8*>(ptr) + header->size);
-
-		if (*footer != FOOTER_GUARD_PATTERN)
-		{
-			DESTAN_LOG_ERROR("Memory corruption detected while freeing the memory at {0}!", ptr);
+		destan_u32* footer = reinterpret_cast<destan_u32*>(
+			reinterpret_cast<destan_char*>(ptr) + header->size
+			);
+		if (*footer != FOOTER_GUARD_PATTERN) {
+			DESTAN_LOG_ERROR("Memory corruption detected in footer while freeing {0}!", ptr);
 		}
 
-		// Clear the memory to help catch use-after-free bugs
+		// Clear memory to catch use-after-free
 		std::memset(ptr, 0xDD, header->size);
 
-		// Update statistics atomically before freeing the memory
+		// Update statistics
 		s_total_freed.fetch_add(header->size, std::memory_order_relaxed);
 		s_allocation_count.fetch_sub(1, std::memory_order_relaxed);
 
-		// Free the actual memory block
-		std::free(header);
+		// Free the original block
+		std::free(original_ptr);
 #else
 		// In release mode, just free the pointer
 		std::free(ptr);
-
-		// Since we don't know the size in release mode
-		// we only decrement the allocation count
 		s_allocation_count.fetch_sub(1, std::memory_order_relaxed);
 #endif
 	}
@@ -348,27 +362,33 @@ namespace destan::core::memory
 		}
 
 #ifdef DESTAN_DEBUG
-		// Get current allocation size
-		destan_u64 current_size = Get_Allocation_Size(ptr);
+		// Try to get the allocation header
+		Allocation_Header* header = Get_Header(ptr);
 
-		// Allocate new block
-		void* new_ptr = Malloc(new_size, alignment);
-		if (!new_ptr)
+		// If we have a valid header (not a thread-local allocation)
+		if (header && Validate_Header(header))
 		{
-			DESTAN_LOG_ERROR("Failed to reallocate memory!");
-			return nullptr;
+			destan_u64 current_size = header->size;
+
+			// Allocate new block
+			void* new_ptr = Malloc(new_size, alignment);
+			if (!new_ptr)
+			{
+				DESTAN_LOG_ERROR("Failed to reallocate memory!");
+				return nullptr;
+			}
+
+			// Copy data from old to new
+			std::memcpy(new_ptr, ptr, (current_size < new_size) ? current_size : new_size);
+
+			// Free old memory
+			Free(ptr);
+			return new_ptr;
 		}
+#endif
 
-		// Copy data from old to new
-		std::memcpy(new_ptr, ptr, (current_size < new_size) ? current_size : new_size);
-
-		// Free old memory
-		Free(ptr);
-
-		return new_ptr;
-#else
-		// In release mode, we don't have size information
-		// so we need to allocate new memory and copy
+		// For thread-local allocations or in release mode:
+		// We don't know the original size, so we'll have to make assumptions
 		void* new_ptr = Malloc(new_size, alignment);
 		if (!new_ptr)
 		{
@@ -382,9 +402,7 @@ namespace destan::core::memory
 
 		// Free old memory
 		Free(ptr);
-
 		return new_ptr;
-#endif
 	}
 
 	void* Memory::Thread_Local_Malloc(destan_u64 size, destan_u64 alignment)
@@ -399,13 +417,15 @@ namespace destan::core::memory
 		return s_thread_local_allocator->Allocate(size, alignment);
 	}
 
-	void Memory::Thread_Local_Free(void* ptr)
+	bool Memory::Thread_Local_Free(void* ptr)
 	{
 		// If the thread-local allocator exists, try to free
 		if (s_thread_local_allocator)
 		{
-			s_thread_local_allocator->Free(ptr);
+			return s_thread_local_allocator->Free(ptr);
 		}
+
+		return false;
 	}
 
 	void* Memory::Memmove(void* dest, const void* src, destan_u64 size)
@@ -485,7 +505,7 @@ namespace destan::core::memory
 		destan_u64 allocation_count = s_allocation_count.load(std::memory_order_relaxed);
 
 		std::stringstream ss;
-		ss << "========== Memory Stats ==========" << std::endl;
+		ss << "\n========== Memory Stats ==========" << std::endl;
 		ss << "Total Allocated: " << total_allocated << " bytes ("
 		   << (total_allocated / 1024.0f / 1024.0f) << " MB)" << std::endl;
 		ss << "Total Freed: " << total_freed << " bytes ("

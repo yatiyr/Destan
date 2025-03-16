@@ -12,6 +12,8 @@ namespace destan::test
     {
         // Initialize the logger
         destan::core::Logger::Get_Instance().Start();
+        destan::core::Logger::Get_Instance().Set_Synchronous_Mode(true);
+        destan::core::Logger::Get_Instance().Set_File_Output_Mode(false);
     }
 
     // Shutdown testing environment

@@ -114,6 +114,41 @@ namespace destan::core
 
     void Logger::Log(Log_Level level, const std::string& message)
     {
+        if (m_synchronous_mode)
+        {
+            std::ofstream log_file;
+            if (m_file_output_mode)
+            {
+                log_file = std::ofstream("destan.log", std::ios::app);
+            }
+
+            // Get current time
+            std::string timestamp = Get_Current_Time();
+
+            // Get log level colors and strings
+            const char* level_color = Get_Log_Level_Color(level);
+            std::string level_string = Get_Log_Level_String(level);
+
+            // Format for console with colors
+            std::cout << s_current_theme.timestamp_color << timestamp << console_format::RESET << " "
+                << level_color << level_string << console_format::RESET << " "
+                << s_current_theme.message_color << message << console_format::RESET << std::endl;
+
+            // Write to file (without ANSI color codes)
+            if (m_file_output_mode)
+            {
+                if (log_file.is_open())
+                {
+                    // Use regex to strip ANSI color codes for file output
+                    std::string clean_message = message;
+                    std::regex ansi_regex("\\x1B\\[[0-9;]*[mK]");
+                    clean_message = std::regex_replace(clean_message, ansi_regex, "");
+
+                    log_file << timestamp << " " << level_string << " " << clean_message << std::endl;
+                }
+            }
+        }
+        else
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_log_queue.emplace(level, message);
@@ -123,7 +158,11 @@ namespace destan::core
 
     void Logger::Process_Logs()
     {
-        std::ofstream log_file("destan.log", std::ios::app);
+        std::ofstream log_file;
+        if (m_file_output_mode)
+        {
+            log_file = std::ofstream("destan.log", std::ios::app);
+        }
 
         while (m_running)
         {
@@ -152,14 +191,17 @@ namespace destan::core
                     << s_current_theme.message_color << message << console_format::RESET << std::endl;
 
                 // Write to file (without ANSI color codes)
-                if (log_file.is_open())
+                if (m_file_output_mode)
                 {
-                    // Use regex to strip ANSI color codes for file output
-                    std::string clean_message = message;
-                    std::regex ansi_regex("\\x1B\\[[0-9;]*[mK]");
-                    clean_message = std::regex_replace(clean_message, ansi_regex, "");
+                    if (log_file.is_open())
+                    {
+                        // Use regex to strip ANSI color codes for file output
+                        std::string clean_message = message;
+                        std::regex ansi_regex("\\x1B\\[[0-9;]*[mK]");
+                        clean_message = std::regex_replace(clean_message, ansi_regex, "");
 
-                    log_file << timestamp << " " << level_string << " " << clean_message << std::endl;
+                        log_file << timestamp << " " << level_string << " " << clean_message << std::endl;
+                    }
                 }
 
                 lock.lock();
