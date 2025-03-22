@@ -79,8 +79,20 @@ namespace destan::core::memory
             new(&m_debug_blocks[i]) Allocation_Info{ block_ptr, nullptr, 0, false };
         }
 
-        // Fill memory with a pattern to help identify uninitialized memory
-        Memory::Memset(m_memory_pool, 0xCD, blocks_size); // 0xCD = "Clean Dynamic memory"
+        for (destan_u64 i = 0; i < block_count; ++i)
+        {
+            // Calculate the start of this block
+            void* block_start = static_cast<destan_char*>(m_memory_pool) + (i * m_padded_block_size);
+
+            // Skip the Free_Block structure to get to the user data area
+            void* user_data = reinterpret_cast<destan_char*>(block_start) + sizeof(Free_Block);
+
+            // Calculate the size of the user portion (block size minus the Free_Block size)
+            destan_u64 user_size = m_padded_block_size - sizeof(Free_Block);
+
+            // Fill only the user area with the pattern
+            Memory::Memset(user_data, 0xCD, user_size);
+        }
 
         DESTAN_LOG_INFO("Pool allocator '{0}' created with {1} blocks, {2} bytes each, {3} bytes total (+ {4} bytes debug info)",
             m_name, block_count, m_block_size, blocks_size, debug_tracking_aligned_size);

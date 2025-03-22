@@ -61,7 +61,7 @@ namespace destan::core::memory
 		T* Create(Args&&... args)
 		{
 			DESTAN_ASSERT(sizeof(T) <= m_block_size, "Object size exceeds block size");
-			DESTAN_ASSERT(sizeof(T) <= m_block_alignment, "Object alignment exceeds block alignment");
+			DESTAN_ASSERT(alignof(T) <= m_block_alignment, "Object alignment exceeds block alignment");
 
 			void* memory = Allocate();
 			if (!memory)
