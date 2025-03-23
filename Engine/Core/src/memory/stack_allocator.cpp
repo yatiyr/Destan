@@ -232,7 +232,27 @@ namespace destan::core::memory
         // Update current position
         m_current_pos = aligned_pos + size;
 
+        void* result_pos_void = reinterpret_cast<void*>(result_pos);
+
 #ifdef DESTAN_DEBUG
+        // Update debug info if allocation succeeded
+        if (result_pos_void && m_debug_allocation_count < MAX_DEBUG_ALLOCATIONS)
+        {
+            // Track the allocation
+            m_debug_allocations[m_debug_allocation_count++] =
+            {
+                reinterpret_cast<destan_u64>(result_pos_void),  // position
+                size,                               // size
+                alignment,                          // alignment
+                "",                               // file
+                -1                                // line
+            };
+        }
+        else if (result_pos_void && m_debug_allocation_count >= MAX_DEBUG_ALLOCATIONS)
+        {
+            DESTAN_LOG_WARN("Stack '{0}': Debug allocation tracking limit reached ({1})",
+                m_name, MAX_DEBUG_ALLOCATIONS);
+        }
         Unlock();
 #endif
 

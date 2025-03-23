@@ -29,7 +29,7 @@ namespace destan::test::pool_allocator
 	};
 
 	// Test basic pool allocator functionality
-	static bool Test_Pool_Basic()
+	static destan_bool Test_Pool_Basic()
 	{
 		// Create a pool with 10 blocks, each 64 bytes
 		const destan_u64 block_size = 64;
@@ -94,7 +94,7 @@ namespace destan::test::pool_allocator
 	}
 
 	 // Test object creation and destruction
-	static bool Test_Pool_Object_Creation()
+	static destan_bool Test_Pool_Object_Creation()
 	{
 		// Create a pool that can hold Test_Objects
 		const destan_u64 block_count = 10;
@@ -124,7 +124,7 @@ namespace destan::test::pool_allocator
 		for (destan_i32 i = 0; i < 5; i++)
 		{
 			// Call destroy, which calls the destructor and sets destroyed=true
-			bool destroy_result = pool.Destroy(objects[i]);
+			destan_bool destroy_result = pool.Destroy(objects[i]);
 
 			// Don't try to access objects[i] after it's been destroyed
 			DESTAN_EXPECT(destroy_result);
@@ -138,7 +138,7 @@ namespace destan::test::pool_allocator
 	}
 
 	// Test pool exhaustion behavior
-	static bool Test_Pool_Exhaustion()
+	static destan_bool Test_Pool_Exhaustion()
 	{
 		// Create a small pool
 		const destan_u64 block_size = 32;
@@ -180,7 +180,7 @@ namespace destan::test::pool_allocator
 		return true;
 	}
 
-	static bool Test_Pool_Reset()
+	static destan_bool Test_Pool_Reset()
 	{
 		// Create a pool
 		const destan_u64 block_size = 64;
@@ -222,7 +222,7 @@ namespace destan::test::pool_allocator
 	}
 
 	// Test invalid deallocation behavior
-	static bool Test_Pool_Invalid_Deallocation()
+	static destan_bool Test_Pool_Invalid_Deallocation()
 	{
 		// Create a pool
 		Pool_Allocator pool(64, 5, "Invalid_Dealloc_Pool");
@@ -248,7 +248,7 @@ namespace destan::test::pool_allocator
 	}
 
 	// Test move semantics
-	static bool Test_Pool_Move_Operations()
+	static destan_bool Test_Pool_Move_Operations()
 	{
 		// Create source pool
 		Pool_Allocator pool1(64, 10, "Source_Pool");
@@ -300,7 +300,7 @@ namespace destan::test::pool_allocator
 	}
 
 	// Test allocation stress
-	static bool Test_Pool_Stress()
+	static destan_bool Test_Pool_Stress()
 	{
 		// Create a pool for small objects
 		const destan_u64 block_size = sizeof(destan_i32);
@@ -359,7 +359,7 @@ namespace destan::test::pool_allocator
 	}
 
 	// Add all pool allocator tests to the test suite
-	static bool Add_All_Tests(Test_Suite& test_suite)
+	static destan_bool Add_All_Tests(Test_Suite& test_suite)
 	{
 		DESTAN_TEST(test_suite, "Basic Pool Operations")
 		{
