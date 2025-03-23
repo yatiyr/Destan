@@ -262,6 +262,9 @@ namespace destan::core::memory
         // Mark the block as allocated
         block->is_free = false;
 
+        // Explicitly decrement free block count when marking a block as allocated
+        m_free_block_count--;
+
         // Update last allocated for FIND_NEXT strategy
         m_last_allocated = block;
 
@@ -310,8 +313,15 @@ namespace destan::core::memory
         // Update debug stats
         m_allocation_count--;
 
-        // Fill memory with pattern to help catch use-after-free
-        destan_u64 user_size = block->size - sizeof(Block_Header);
+        // Calculate the user memory region based on the actual user pointer
+        destan_u8* block_start = reinterpret_cast<destan_u8*>(block);
+        destan_u8* block_end = block_start + block->size;
+        destan_u8* user_ptr = static_cast<destan_u8*>(ptr);
+
+        // Calculate size from the user pointer to the end of the block
+        destan_u64 user_size = static_cast<destan_u64>(block_end - user_ptr);
+
+        // Fill only the user area with pattern
         Memory::Memset(ptr, 0xDD, user_size); // 0xDD = "Dead Dynamic memory"
 #endif
 
@@ -462,25 +472,21 @@ namespace destan::core::memory
     // Private helper methods
     Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Suitable_Block(destan_u64 size, destan_u64 alignment)
     {
-        // Ensure we account for alignment in size requirements
-        destan_u64 max_adjustment = alignment - 1 + sizeof(Block_Header);
-        destan_u64 adjusted_size = size + max_adjustment;
-
         // Use the appropriate strategy
         switch (m_strategy)
         {
         case Allocation_Strategy::FIND_FIRST:
-            return Find_First_Fit(adjusted_size, alignment);
+            return Find_First_Fit(size, alignment);
 
         case Allocation_Strategy::FIND_BEST:
-            return Find_Best_Fit(adjusted_size, alignment);
+            return Find_Best_Fit(size, alignment);
 
         case Allocation_Strategy::FIND_NEXT:
-            return Find_Next_Fit(adjusted_size, alignment);
+            return Find_Next_Fit(size, alignment);
 
         default:
             DESTAN_LOG_ERROR("Free List Allocator '{0}': Unknown allocation strategy", m_name);
-            return Find_First_Fit(adjusted_size, alignment);
+            return Find_First_Fit(size, alignment);
         }
     }
 
@@ -493,16 +499,16 @@ namespace destan::core::memory
 
         while (current)
         {
-            // Calculate aligned address
+            // Calculate the actual aligned address for this specific block
             destan_u8* block_start = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
             destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
                 Memory::Align_Address(block_start, alignment)
                 );
 
-            // Calculate adjustment needed for alignment
+            // Calculate the actual adjustment needed for this block
             destan_u64 adjustment = aligned_address - block_start;
 
-            // Check if block is large enough including alignment adjustment
+            // Check if this block is large enough with its actual alignment needs
             if (current->size >= sizeof(Block_Header) + adjustment + size)
             {
                 return current;

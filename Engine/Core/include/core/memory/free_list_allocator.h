@@ -197,8 +197,6 @@ namespace destan::core::memory
 		 */
 		void Dump_Fragmentation_Map();
 #endif
-
-	private:
 		// Internal structure for block headers
 		struct Block_Header
 		{
@@ -220,6 +218,7 @@ namespace destan::core::memory
 			destan_u32 guard_value;        // Magic value to detect memory corruption
 #endif
 		};
+	private:
 
 		// Find a suitable block using the current allocation strategy
 		Block_Header* Find_Suitable_Block(destan_u64 size, destan_u64 alignment);
