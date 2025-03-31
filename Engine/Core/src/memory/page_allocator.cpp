@@ -424,11 +424,21 @@ namespace destan::core::memory
 
         void* allocation = nullptr;
 
+        // For READ_ONLY pages that need zeroing, we need to allocate as READ_WRITE first
+        Page_Protection initial_protection = protection;
+        if (protection == Page_Protection::READ_ONLY && Has_Flag(flags, Page_Flags::ZERO) && file_path == nullptr)
+        {
+            // Temporarily use READ_WRITE for initialization
+            initial_protection = Page_Protection::READ_WRITE;
+        }
+
         // Check if this is a file mapping
         if (file_path != nullptr)
         {
             // Memory map the file
             allocation = Map_File_To_Memory(file_path, file_offset, aligned_size, protection);
+
+            // For memory-mapped files, we don't need to zero since they're initialized with file content
         }
         else
         {
@@ -443,10 +453,11 @@ namespace destan::core::memory
                 if (Has_Flag(flags, Page_Flags::COMMIT))
                 {
 #ifdef DESTAN_PLATFORM_WINDOWS
-                    allocation = VirtualAlloc(base, aligned_size, MEM_COMMIT, Convert_Protection_Flags(protection));
+                    // Use initial_protection which might be READ_WRITE for zeroing
+                    allocation = VirtualAlloc(base, aligned_size, MEM_COMMIT, Convert_Protection_Flags(initial_protection));
 #else
                     // On Unix, we need to change the protection to actually commit the pages
-                    if (mprotect(base, aligned_size, Convert_Protection_Flags(protection)) == 0)
+                    if (mprotect(base, aligned_size, Convert_Protection_Flags(initial_protection)) == 0)
                     {
                         allocation = base;
                     }
@@ -477,7 +488,8 @@ namespace destan::core::memory
                     alloc_type |= MEM_LARGE_PAGES;
                 }
 
-                allocation = VirtualAlloc(nullptr, aligned_size, alloc_type, Convert_Protection_Flags(protection));
+                // Use initial_protection which might be READ_WRITE for zeroing
+                allocation = VirtualAlloc(nullptr, aligned_size, alloc_type, Convert_Protection_Flags(initial_protection));
 #else
                 int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
@@ -489,7 +501,7 @@ namespace destan::core::memory
                 }
 #endif
 
-                allocation = mmap(nullptr, aligned_size, Convert_Protection_Flags(protection), mmap_flags, -1, 0);
+                allocation = mmap(nullptr, aligned_size, Convert_Protection_Flags(initial_protection), mmap_flags, -1, 0);
                 if (allocation == MAP_FAILED)
                 {
                     allocation = nullptr;
@@ -506,10 +518,27 @@ namespace destan::core::memory
             return nullptr;
         }
 
-        // Zero memory if requested
-        if (Has_Flag(flags, Page_Flags::ZERO))
+        // Zero memory if requested (now safe since we're using READ_WRITE if needed)
+        if (Has_Flag(flags, Page_Flags::ZERO) && file_path == nullptr)
         {
             Memory::Memset(allocation, 0, aligned_size);
+        }
+
+        // Change protection to READ_ONLY if we temporarily used READ_WRITE
+        if (initial_protection != protection)
+        {
+#ifdef DESTAN_PLATFORM_WINDOWS
+            DWORD old_protect;
+            if (!VirtualProtect(allocation, aligned_size, Convert_Protection_Flags(protection), &old_protect))
+            {
+                DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
+            }
+#else
+            if (mprotect(allocation, aligned_size, Convert_Protection_Flags(protection)) != 0)
+            {
+                DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
+            }
+#endif
         }
 
         // Add guard pages if requested
@@ -533,7 +562,7 @@ namespace destan::core::memory
         info.base_address = allocation;
         info.size = aligned_size;
         info.page_count = page_count;
-        info.protection = protection;
+        info.protection = protection;  // Store the final protection, not the initial one
         info.flags = flags;
         info.file_path = file_path;
 

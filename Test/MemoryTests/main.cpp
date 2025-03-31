@@ -7,6 +7,7 @@
 #include <pool_allocator_tests.h>
 #include <stack_allocator_tests.h>
 #include <free_list_allocator_tests.h>
+#include <page_allocator_tests.h>
 
 using namespace destan::core::memory;
 using namespace destan::test;
@@ -207,6 +208,7 @@ int main(int argc, char** argv)
 		destan::test::pool_allocator::Add_All_Tests(memory_tests);
 		destan::test::stack_allocator::Add_All_Tests(memory_tests);
 		destan::test::free_list_allocator::Add_All_Tests(memory_tests);
+		destan::test::page_allocator::Add_All_Tests(memory_tests);
 
 		return memory_tests.Run_All();
 	});
