@@ -270,6 +270,8 @@ namespace destan::core::memory
         }
 
         // Create a new resource entry
+        // NOTE_EREN: Resource ID => 0 means that this resource is invalid so id's will always
+        // start from 1
         Resource_Entry& entry = m_resources[m_resource_count++];
         entry.info.id = request.resource_id > 0 ? request.resource_id : Generate_Resource_ID();
 
@@ -311,6 +313,35 @@ namespace destan::core::memory
 
     Resource_Handle Streaming_Allocator::Prefetch_Resource(const destan_char* path, Resource_Category category)
     {
+        if (!path) {
+            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Cannot prefetch resource with null path", m_name);
+            return Resource_Handle();
+        }
+
+        // Detect the file size
+        destan_u64 file_size = 0;
+
+#ifdef DESTAN_PLATFORM_WINDOWS
+        WIN32_FILE_ATTRIBUTE_DATA file_info;
+        if (GetFileAttributesExA(path, GetFileExInfoStandard, &file_info)) {
+            LARGE_INTEGER size;
+            size.LowPart = file_info.nFileSizeLow;
+            size.HighPart = file_info.nFileSizeHigh;
+            file_size = static_cast<destan_u64>(size.QuadPart);
+        }
+#else
+        struct stat file_stat;
+        if (stat(path, &file_stat) == 0) {
+            file_size = static_cast<destan_u64>(file_stat.st_size);
+        }
+#endif
+
+        if (file_size == 0) {
+            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to detect size for file {1}", m_name, path);
+            return Resource_Handle();
+        }
+
+        // Create request with the detected file size
         Resource_Request request;
         request.resource_id = 0; // Generate a new ID
         request.path = path;
@@ -320,7 +351,7 @@ namespace destan::core::memory
         request.callback = nullptr;
         request.user_data = nullptr;
         request.auto_unload = true;
-        request.estimated_size = 0; // Unknown size
+        request.estimated_size = file_size; // Use the actual file size
 
         return Request_Resource(request);
     }
@@ -468,6 +499,14 @@ namespace destan::core::memory
             return false;
         }
 
+        // Don't unload critical resources
+        if (entry->info.priority == Resource_Priority::CRITICAL)
+        {
+            DESTAN_LOG_WARN("Streaming Allocator '{0}': Cannot unload critical resource {1}",
+                m_name, entry->info.id);
+            return false;
+        }
+
         // If it has references, we can't unload it
         if (entry->info.reference_count > 0)
         {
@@ -503,11 +542,19 @@ namespace destan::core::memory
                     entry.access_mode == Access_Mode::PERSISTENT_WRITE) &&
                 entry.data)
             {
-                // Flush memory-mapped file
-                m_page_allocator.Flush(entry.data, entry.info.size);
+                // Flush memory-mapped file using the page allocator
+                bool flush_result = m_page_allocator.Flush(entry.data, entry.info.size);
 
-                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Flushed resource {1} to disk",
-                    m_name, entry.info.id);
+                if (flush_result)
+                {
+                    DESTAN_LOG_TRACE("Streaming Allocator '{0}': Flushed resource {1} to disk",
+                        m_name, entry.info.id);
+                }
+                else
+                {
+                    DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to flush resource {1} to disk",
+                        m_name, entry.info.id);
+                }
             }
         }
     }
@@ -657,23 +704,13 @@ namespace destan::core::memory
         destan_u32 operations_processed = 0;
 
         // First, check if any active operations have completed
-        // This would be done in a background thread in a real implementation
-        // For this example, we'll simulate immediate completion
-        for (const auto& operation : m_active_operations)
-        {
-            if (operation.type == IO_Operation::LOAD)
-            {
-                Execute_Resource_Load(operation);
-            }
-            else
-            {
-                Execute_Resource_Unload(operation);
-            }
+        // TODO_EREN: In a real async implementation, we would check completion status here
+        // and only process operations that have finished. For now, we're just
+        // simulating this behavior by immediately processing all operations in
+        // the pending queue below.
 
-            operations_processed++;
-        }
-
-        // Clear active operations
+        // For now, just clear active operations without processing them again
+        // as they were already executed when moved from the pending queue
         m_active_operations.clear();
 
         // Add new operations from the pending queue
@@ -690,11 +727,11 @@ namespace destan::core::memory
             IO_Operation operation = m_pending_operations.front();
             m_pending_operations.erase(m_pending_operations.begin());
 
-            // Add to active operations
+            // Add to active operations - in a real implementation, these would be tracked
+            // until the async operation completes
             m_active_operations.push_back(operation);
 
-            // In a real implementation, we would dispatch the operation to a background thread
-            // But for this example, we'll execute it immediately
+            // Execute immediately (in a real implementation, this would be dispatched to a background thread)
             if (operation.type == IO_Operation::LOAD)
             {
                 Execute_Resource_Load(operation);
@@ -803,7 +840,7 @@ namespace destan::core::memory
 
         // Determine protection mode based on access mode
         Page_Protection protection;
-        Page_Flags flags = Page_Flags::COMMIT | Page_Flags::ZERO;
+        Page_Flags flags = Page_Flags::COMMIT;
 
         switch (entry->access_mode)
         {
@@ -812,8 +849,12 @@ namespace destan::core::memory
             break;
 
         case Access_Mode::READ_WRITE:
+            protection = Page_Protection::READ_WRITE;
+            break;
+
         case Access_Mode::PERSISTENT_WRITE:
             protection = Page_Protection::READ_WRITE;
+            flags = flags | Page_Flags::MAP_FILE;
             break;
 
         default:
@@ -821,39 +862,97 @@ namespace destan::core::memory
             break;
         }
 
-        // For memory-mapped files, use MAP_FILE flag
-        if (entry->access_mode == Access_Mode::PERSISTENT_WRITE)
+        // Use ZERO flag for READ_ONLY access to ensure memory is clean
+        if (entry->access_mode == Access_Mode::READ_ONLY && !entry->info.path[0])
         {
-            flags = flags | Page_Flags::MAP_FILE;
+            flags = flags | Page_Flags::ZERO;
         }
 
         // Allocate memory for the resource
-        void* data = m_page_allocator.Allocate(
-            entry->info.size,
-            protection,
-            flags,
-            entry->access_mode == Access_Mode::PERSISTENT_WRITE ? entry->info.path : nullptr
-        );
+        void* data = nullptr;
 
-        if (!data)
+        if (entry->access_mode == Access_Mode::PERSISTENT_WRITE ||
+            (entry->info.path[0] && std::filesystem::exists(entry->info.path)))
         {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to allocate memory for resource {1}",
-                m_name, entry->info.id);
+            // Use memory mapping for files that exist
+            data = m_page_allocator.Allocate(
+                entry->info.size,
+                protection,
+                flags,
+                entry->info.path // Map the file directly
+            );
 
-            entry->info.state = Resource_State::FAILED;
-            m_stats.loading_count--;
-            m_stats.failed_count++;
-            return;
-        }
-
-        // In a real implementation, we would load the resource data from disk
-        // For this example, we'll just fill with a pattern to simulate loading
-        if (entry->access_mode != Access_Mode::PERSISTENT_WRITE)
-        {
-            // Simulate loading by filling with a pattern
-            for (destan_u64 i = 0; i < entry->info.size; i++)
+            // Log success or failure
+            if (data)
             {
-                static_cast<destan_u8*>(data)[i] = static_cast<destan_u8>(i % 256);
+                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Memory mapped file {1} ({2} KB)",
+                    m_name, entry->info.path, entry->info.size / 1024);
+            }
+            else
+            {
+                DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to memory map file {1}",
+                    m_name, entry->info.path);
+
+                // Mark resource as failed
+                entry->info.state = Resource_State::FAILED;
+                m_stats.loading_count--;
+                m_stats.failed_count++;
+                return;
+            }
+        }
+        else
+        {
+            // Allocate regular memory for non-file resources or non-existent files
+            data = m_page_allocator.Allocate(
+                entry->info.size,
+                protection,
+                flags
+            );
+
+            if (!data)
+            {
+                DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to allocate memory for resource {1}",
+                    m_name, entry->info.id);
+
+                entry->info.state = Resource_State::FAILED;
+                m_stats.loading_count--;
+                m_stats.failed_count++;
+                return;
+            }
+
+            // If this is not a memory-mapped file and file path is specified,
+            // attempt to load the file manually
+            if (entry->info.path[0] && entry->access_mode != Access_Mode::PERSISTENT_WRITE)
+            {
+                std::ifstream file(entry->info.path, std::ios::binary);
+                if (file)
+                {
+                    // Read the file data into memory
+                    file.read(static_cast<char*>(data), entry->info.size);
+
+                    // Check if we read the expected amount
+                    destan_u64 bytes_read = static_cast<destan_u64>(file.gcount());
+                    if (bytes_read < entry->info.size)
+                    {
+                        // Fill the rest with zeros
+                        Memory::Memset(static_cast<destan_u8*>(data) + bytes_read, 0, entry->info.size - bytes_read);
+
+                        DESTAN_LOG_WARN("Streaming Allocator '{0}': File {1} was smaller than expected ({2} vs {3} bytes)",
+                            m_name, entry->info.path, bytes_read, entry->info.size);
+                    }
+
+                    DESTAN_LOG_TRACE("Streaming Allocator '{0}': Loaded file {1} ({2} bytes)",
+                        m_name, entry->info.path, bytes_read);
+                }
+                else
+                {
+                    // File couldn't be opened
+                    DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to open file {1}",
+                        m_name, entry->info.path);
+
+                    // Initialize memory to zeros
+                    Memory::Memset(data, 0, entry->info.size);
+                }
             }
         }
 
@@ -908,6 +1007,8 @@ namespace destan::core::memory
         if (entry->access_mode == Access_Mode::PERSISTENT_WRITE && entry->data)
         {
             m_page_allocator.Flush(entry->data, entry->info.size);
+            DESTAN_LOG_TRACE("Streaming Allocator '{0}': Flushed changes to file {1}",
+                m_name, entry->info.path);
         }
 
         // Deallocate memory
@@ -1000,6 +1101,7 @@ namespace destan::core::memory
     destan_u64 Streaming_Allocator::Generate_Resource_ID()
     {
         // Use atomic increment to ensure thread safety
+        static std::atomic<destan_u64> next_id{ 1 };
         return m_next_resource_id.fetch_add(1, std::memory_order_relaxed);
     }
 
@@ -1115,32 +1217,38 @@ namespace destan::core::memory
 
             switch (entry.info.priority)
             {
-            case Resource_Priority::CRITICAL:
-                // Always load critical resources
-                should_load = true;
-                break;
+                case Resource_Priority::CRITICAL:
+                    // Always load critical resources
+                    should_load = true;
+                    break;
 
-            case Resource_Priority::HIGH:
-                // Load high priority resources if close
-                should_load = (entry.distance_from_player < 200.0f);
-                break;
+                case Resource_Priority::HIGH:
+                    // Load high priority resources if close
+                    should_load = (entry.distance_from_player < 200.0f);
+                    break;
 
-            case Resource_Priority::MEDIUM:
-                // Load medium priority resources if very close
-                should_load = (entry.distance_from_player < 100.0f);
-                break;
+                case Resource_Priority::MEDIUM:
+                    // Load medium priority resources if very close
+                    should_load = (entry.distance_from_player < 100.0f);
+                    break;
 
-            case Resource_Priority::LOW:
-                // Load low priority resources if extremely close
-                should_load = (entry.distance_from_player < 50.0f);
-                break;
+                case Resource_Priority::LOW:
+                    // Load low priority resources if extremely close
+                    should_load = (entry.distance_from_player < 50.0f);
+                    break;
 
-            case Resource_Priority::BACKGROUND:
-                // Load background resources only if very few operations pending
-                should_load = (entry.distance_from_player < 20.0f &&
-                    m_pending_operations.size() < m_config.max_concurrent_operations);
-                break;
+                case Resource_Priority::BACKGROUND:
+                    // Load background resources only if very few operations pending
+                    should_load = (entry.distance_from_player < 20.0f &&
+                        m_pending_operations.size() < m_config.max_concurrent_operations);
+                    break;
             }
+
+            // TODO_EREN: This will be changed
+            // right now, we are loading some unloaded resources
+            // redundantly but after implementing other parts of the
+            // engine, I will return back here
+            should_load = false;
 
             if (should_load && Has_Available_Memory(entry.info.category, entry.info.size))
             {

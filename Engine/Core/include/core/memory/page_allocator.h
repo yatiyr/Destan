@@ -291,7 +291,7 @@ namespace destan::core::memory
         void* Reserve_Address_Space(destan_u64 size, destan_u64 alignment);
         void Release_Address_Space(void* ptr, destan_u64 size);
         void* Map_File_To_Memory(const destan_char* file_path, destan_u64 file_offset,
-            destan_u64 size, Page_Protection protection);
+            destan_u64& size, Page_Protection protection);
 
         // Private helper to convert our protection enum to system-specific flags
         static destan_u32 Convert_Protection_Flags(Page_Protection protection);

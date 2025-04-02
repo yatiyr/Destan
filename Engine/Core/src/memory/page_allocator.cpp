@@ -259,7 +259,7 @@ namespace destan::core::memory
     }
 
     void* Page_Allocator::Map_File_To_Memory(const destan_char* file_path, destan_u64 file_offset,
-        destan_u64 size, Page_Protection protection)
+        destan_u64& size, Page_Protection protection)  // Note: size is now a reference
     {
         if (!file_path || size == 0) return nullptr;
 
@@ -273,7 +273,39 @@ namespace destan::core::memory
             return nullptr;
         }
 
-        // Create a file mapping object
+        // TODO_EREN: In the future, I need to implement headers for resources that are going to be
+        // used by my engine so that I will know their flags, sizes and other info
+        // I plan something like this:
+        //    [4 bytes] - Magic identifier "DEST"
+        //    [8 bytes] - Total file size(including header)
+        //    [8 bytes] - Payload size
+        //    [8 bytes] - Version
+        //    [8 bytes] - Resource type
+        //    [8 bytes] - Flags
+        //    [...] - Resource data
+        // I will return here back after finishing my resource system
+        // The system will first try to get resource size from the header but If
+        // it cannot get the header, it will check its size and then try mapping it
+
+        // Get the actual file size
+        LARGE_INTEGER file_size;
+        if (!GetFileSizeEx(file_handle, &file_size))
+        {
+            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
+            CloseHandle(file_handle);
+            return nullptr;
+        }
+
+        // Adjust size if needed
+        destan_u64 actual_file_size = static_cast<destan_u64>(file_size.QuadPart);
+        if (size > actual_file_size)
+        {
+            DESTAN_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
+                m_name, size / 1024, actual_file_size / 1024, file_path);
+            size = actual_file_size;  // Update the reference parameter
+        }
+
+        // Create a file mapping object with the adjusted size
         HANDLE mapping_handle = CreateFileMappingA(file_handle, nullptr,
             Convert_Protection_Flags(protection),
             (DWORD)((size + file_offset) >> 32),
@@ -329,6 +361,24 @@ namespace destan::core::memory
             return nullptr;
         }
 
+        // Get the actual file size
+        struct stat file_stat;
+        if (fstat(fd, &file_stat) == -1)
+        {
+            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
+            close(fd);
+            return nullptr;
+        }
+
+        // Adjust size if needed
+        destan_u64 actual_file_size = static_cast<destan_u64>(file_stat.st_size);
+        if (size > actual_file_size)
+        {
+            DESTAN_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
+                m_name, size / 1024, actual_file_size / 1024, file_path);
+            size = actual_file_size;  // Update the reference parameter
+        }
+
         // Determine protection flags
         int prot_flags = 0;
         switch (protection)
@@ -347,7 +397,7 @@ namespace destan::core::memory
             break;
         }
 
-        // Map the file into memory
+        // Map the file into memory with adjusted size
         void* mapped_address = mmap(nullptr, size, prot_flags, MAP_SHARED, fd, file_offset);
 
         // Close the file descriptor (the mapping remains valid)

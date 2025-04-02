@@ -8,6 +8,7 @@
 #include <stack_allocator_tests.h>
 #include <free_list_allocator_tests.h>
 #include <page_allocator_tests.h>
+#include <streaming_allocator_tests.h>
 
 using namespace destan::core::memory;
 using namespace destan::test;
@@ -209,7 +210,13 @@ int main(int argc, char** argv)
 		destan::test::stack_allocator::Add_All_Tests(memory_tests);
 		destan::test::free_list_allocator::Add_All_Tests(memory_tests);
 		destan::test::page_allocator::Add_All_Tests(memory_tests);
+		destan::test::streaming_allocator::Add_All_Tests(memory_tests);
 
-		return memory_tests.Run_All();
+		bool result = memory_tests.Run_All();
+
+		// Cleaning up the mess during the tests
+		destan::test::streaming_allocator::Delete_Test_Files();
+
+		return result;
 	});
 }

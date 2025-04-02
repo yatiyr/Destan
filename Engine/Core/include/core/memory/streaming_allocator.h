@@ -101,7 +101,7 @@ namespace destan::core::memory
             destan_u64 total_memory_budget = 256 * 1024 * 1024;  // Total memory budget (default: 256MB)
             destan_u64 page_size = 64 * 1024;                    // Page size (default: 64KB)
             destan_u32 max_concurrent_operations = 4;            // Maximum number of concurrent I/O operations
-            destan_u32 cache_seconds = 30;                       // How long to keep unused resources (in seconds)
+            destan_u32 cache_seconds = 60 * 60;                  // How long to keep unused resources (in seconds)
             destan_bool enable_predictive_loading = true;        // Whether to use predictive loading
             destan_bool log_detailed_stats = false;              // Whether to log detailed memory stats
 
