@@ -2,7 +2,7 @@
 #include <core/memory/memory.h>
 #include <core/defines.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
     /**
      * Memory page protection modes
@@ -35,17 +35,17 @@ namespace destan::core::memory
     // Allow flags to be combined using bitwise operators
     inline Page_Flags operator|(Page_Flags a, Page_Flags b)
     {
-        return static_cast<Page_Flags>(static_cast<destan_u32>(a) | static_cast<destan_u32>(b));
+        return static_cast<Page_Flags>(static_cast<ds_u32>(a) | static_cast<ds_u32>(b));
     }
 
     inline Page_Flags operator&(Page_Flags a, Page_Flags b)
     {
-        return static_cast<Page_Flags>(static_cast<destan_u32>(a) & static_cast<destan_u32>(b));
+        return static_cast<Page_Flags>(static_cast<ds_u32>(a) & static_cast<ds_u32>(b));
     }
 
     inline bool Has_Flag(Page_Flags flags, Page_Flags flag)
     {
-        return (static_cast<destan_u32>(flags) & static_cast<destan_u32>(flag)) != 0;
+        return (static_cast<ds_u32>(flags) & static_cast<ds_u32>(flag)) != 0;
     }
 
     /**
@@ -72,16 +72,16 @@ namespace destan::core::memory
         struct Page_Info
         {
             void* base_address;              // Base address of the page
-            destan_u64 size;                 // Size of the allocation in bytes
-            destan_u64 page_count;           // Number of pages in this allocation
+            ds_u64 size;                 // Size of the allocation in bytes
+            ds_u64 page_count;           // Number of pages in this allocation
             Page_Protection protection;      // Protection mode
             Page_Flags flags;                // Allocation flags
-            const destan_char* file_path;    // File path if this is a memory-mapped file (nullptr otherwise)
+            const ds_char* file_path;    // File path if this is a memory-mapped file (nullptr otherwise)
 
-#ifdef DESTAN_DEBUG
-            const destan_char* allocation_file; // Source file where allocation occurred
-            destan_i32 allocation_line;         // Source line where allocation occurred
-            destan_u64 allocation_id;           // Unique ID for this allocation
+#ifdef DS_DEBUG
+            const ds_char* allocation_file; // Source file where allocation occurred
+            ds_i32 allocation_line;         // Source line where allocation occurred
+            ds_u64 allocation_id;           // Unique ID for this allocation
 #endif
         };
 
@@ -92,8 +92,8 @@ namespace destan::core::memory
          * @param reserve_address_space_size Size of virtual address space to reserve (0 = no prereservation)
          * @param name Optional name for debugging purposes
          */
-        Page_Allocator(destan_u64 page_size = 0, destan_u64 reserve_address_space_size = 0,
-            const destan_char* name = "Page_Allocator");
+        Page_Allocator(ds_u64 page_size = 0, ds_u64 reserve_address_space_size = 0,
+            const ds_char* name = "Page_Allocator");
 
         /**
          * Destructor - releases all allocated pages
@@ -118,9 +118,9 @@ namespace destan::core::memory
          * @param file_offset Offset within the file to start mapping from
          * @return Pointer to the allocated memory, or nullptr if allocation failed
          */
-        void* Allocate(destan_u64 size, Page_Protection protection = Page_Protection::READ_WRITE,
+        void* Allocate(ds_u64 size, Page_Protection protection = Page_Protection::READ_WRITE,
             Page_Flags flags = Page_Flags::COMMIT | Page_Flags::ZERO,
-            const destan_char* file_path = nullptr, destan_u64 file_offset = 0);
+            const ds_char* file_path = nullptr, ds_u64 file_offset = 0);
 
         /**
          * Allocates and constructs an object using page allocation
@@ -192,7 +192,7 @@ namespace destan::core::memory
          * @param size Size of the region to commit (must be within the original allocation)
          * @return True if commit was successful, false otherwise
          */
-        bool Commit(void* ptr, destan_u64 size);
+        bool Commit(void* ptr, ds_u64 size);
 
         /**
          * Decommits pages, releasing physical memory but keeping virtual address space
@@ -201,7 +201,7 @@ namespace destan::core::memory
          * @param size Size of the region to decommit (must be within the original allocation)
          * @return True if decommit was successful, false otherwise
          */
-        bool Decommit(void* ptr, destan_u64 size);
+        bool Decommit(void* ptr, ds_u64 size);
 
         /**
          * Flushes changes made to a memory-mapped file back to disk
@@ -210,7 +210,7 @@ namespace destan::core::memory
          * @param size Size of the region to flush (must be within the original allocation)
          * @return True if flush was successful, false otherwise
          */
-        bool Flush(void* ptr, destan_u64 size);
+        bool Flush(void* ptr, ds_u64 size);
 
         /**
          * Returns information about an allocated page block
@@ -233,50 +233,50 @@ namespace destan::core::memory
          *
          * @return System page size in bytes
          */
-        static destan_u64 Get_System_Page_Size();
+        static ds_u64 Get_System_Page_Size();
 
         /**
          * Gets the large page size if supported by the system
          *
          * @return Large page size in bytes, or 0 if not supported
          */
-        static destan_u64 Get_Large_Page_Size();
+        static ds_u64 Get_Large_Page_Size();
 
         /**
          * Gets the allocator's page size
          *
          * @return Page size in bytes
          */
-        destan_u64 Get_Page_Size() const { return m_page_size; }
+        ds_u64 Get_Page_Size() const { return m_page_size; }
 
         /**
          * Gets the total number of pages currently allocated
          *
          * @return Number of allocated pages
          */
-        destan_u64 Get_Allocated_Page_Count() const { return m_allocated_page_count; }
+        ds_u64 Get_Allocated_Page_Count() const { return m_allocated_page_count; }
 
         /**
          * Gets the total memory currently allocated by this allocator
          *
          * @return Total allocated memory in bytes
          */
-        destan_u64 Get_Total_Allocated() const { return m_allocated_page_count * m_page_size; }
+        ds_u64 Get_Total_Allocated() const { return m_allocated_page_count * m_page_size; }
 
         /**
          * Gets the name of this allocator
          *
          * @return Allocator name
          */
-        const destan_char* Get_Name() const { return m_name; }
+        const ds_char* Get_Name() const { return m_name; }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         /**
          * Debug version of Allocate that tracks the allocation
          */
-        void* Allocate_Debug(destan_u64 size, Page_Protection protection, Page_Flags flags,
-            const destan_char* file_path, destan_u64 file_offset,
-            const destan_char* allocation_file, destan_i32 allocation_line);
+        void* Allocate_Debug(ds_u64 size, Page_Protection protection, Page_Flags flags,
+            const ds_char* file_path, ds_u64 file_offset,
+            const ds_char* allocation_file, ds_i32 allocation_line);
 
         /**
          * Dumps statistics and information about all allocated pages
@@ -288,69 +288,69 @@ namespace destan::core::memory
         // Helper methods
         void Initialize();
         bool Initialize_Memory_Mapping();
-        void* Reserve_Address_Space(destan_u64 size, destan_u64 alignment);
-        void Release_Address_Space(void* ptr, destan_u64 size);
-        void* Map_File_To_Memory(const destan_char* file_path, destan_u64 file_offset,
-            destan_u64& size, Page_Protection protection);
+        void* Reserve_Address_Space(ds_u64 size, ds_u64 alignment);
+        void Release_Address_Space(void* ptr, ds_u64 size);
+        void* Map_File_To_Memory(const ds_char* file_path, ds_u64 file_offset,
+            ds_u64& size, Page_Protection protection);
 
         // Private helper to convert our protection enum to system-specific flags
-        static destan_u32 Convert_Protection_Flags(Page_Protection protection);
+        static ds_u32 Convert_Protection_Flags(Page_Protection protection);
 
         // Memory tracking
-        static constexpr destan_u64 MAX_PAGE_ALLOCATIONS = 1024; // Maximum number of tracked allocations
+        static constexpr ds_u64 MAX_PAGE_ALLOCATIONS = 1024; // Maximum number of tracked allocations
         Page_Info m_page_infos[MAX_PAGE_ALLOCATIONS];            // Array of page allocation info
-        destan_u64 m_page_info_count = 0;                        // Number of tracked allocations
+        ds_u64 m_page_info_count = 0;                        // Number of tracked allocations
 
         // Allocator properties
-        destan_u64 m_page_size = 0;                              // Size of each page in bytes
-        destan_u64 m_system_page_size = 0;                       // Native OS page size
-        destan_u64 m_large_page_size = 0;                        // Large page size (if supported)
-        destan_u64 m_allocated_page_count = 0;                   // Number of pages allocated
+        ds_u64 m_page_size = 0;                              // Size of each page in bytes
+        ds_u64 m_system_page_size = 0;                       // Native OS page size
+        ds_u64 m_large_page_size = 0;                        // Large page size (if supported)
+        ds_u64 m_allocated_page_count = 0;                   // Number of pages allocated
 
         // Pre-reserved address space (optional)
         void* m_reserved_address_space = nullptr;                // Pre-reserved address space
-        destan_u64 m_reserved_address_space_size = 0;            // Size of pre-reserved address space
-        destan_u64 m_reserved_address_space_used = 0;            // Amount of pre-reserved space used
+        ds_u64 m_reserved_address_space_size = 0;            // Size of pre-reserved address space
+        ds_u64 m_reserved_address_space_used = 0;            // Amount of pre-reserved space used
 
         // Fixed-size buffer for name
-        static constexpr destan_u64 MAX_NAME_LENGTH = 64;
-        destan_char m_name[MAX_NAME_LENGTH];
+        static constexpr ds_u64 MAX_NAME_LENGTH = 64;
+        ds_char m_name[MAX_NAME_LENGTH];
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Debug tracking
-        static std::atomic<destan_u64> s_next_allocation_id;
+        static std::atomic<ds_u64> s_next_allocation_id;
         std::mutex m_mutex;  // For thread safety in debug builds
 #endif
 
         // Thread safety helper methods
         void Lock()
         {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             m_mutex.lock();
 #endif
         }
 
         void Unlock()
         {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             m_mutex.unlock();
 #endif
         }
     };
 
     // Helper macros for page allocator
-#ifdef DESTAN_DEBUG
-#define DESTAN_PAGE_ALLOC(allocator, size, protection, flags, file_path, file_offset) \
+#ifdef DS_DEBUG
+#define DS_PAGE_ALLOC(allocator, size, protection, flags, file_path, file_offset) \
         (allocator)->Allocate_Debug((size), (protection), (flags), (file_path), (file_offset), __FILE__, __LINE__)
 #else
-#define DESTAN_PAGE_ALLOC(allocator, size, protection, flags, file_path, file_offset) \
+#define DS_PAGE_ALLOC(allocator, size, protection, flags, file_path, file_offset) \
         (allocator)->Allocate((size), (protection), (flags), (file_path), (file_offset))
 #endif
 
-#define DESTAN_PAGE_CREATE(allocator, type, protection, flags, ...) \
+#define DS_PAGE_CREATE(allocator, type, protection, flags, ...) \
         (allocator)->Create<type>((protection), (flags), __VA_ARGS__)
 
-#define DESTAN_PAGE_DESTROY(allocator, ptr) \
+#define DS_PAGE_DESTROY(allocator, ptr) \
         (allocator)->Destroy(ptr)
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

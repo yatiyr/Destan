@@ -1,7 +1,7 @@
-#include <core/destan.h>
+#include <core/ds.h>
 #include <core/memory/memory.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
 
 	/**
@@ -26,8 +26,9 @@ namespace destan::core::memory
 		 * @param block_size Size of each block in the pool
 		 * @param block_count Number of blocks to pre-allocate
 		 * @param name Optional name for debugging purposes
+		 * @param alignment
 		 */
-		Pool_Allocator(destan_u64 block_size, destan_u64 block_count, const destan_char* name = "Pool");
+		Pool_Allocator(ds_u64 block_size, ds_u64 block_count, const ds_char* name = "Pool", ds_u64 alignment = 16);
 
 		/**
 		 * Destructor copying to prevent double-freeing
@@ -60,8 +61,8 @@ namespace destan::core::memory
 		template<typename T, typename... Args>
 		T* Create(Args&&... args)
 		{
-			DESTAN_ASSERT(sizeof(T) <= m_block_size, "Object size exceeds block size");
-			DESTAN_ASSERT(alignof(T) <= m_block_alignment, "Object alignment exceeds block alignment");
+			DS_ASSERT(sizeof(T) <= m_block_size, "Object size exceeds block size");
+			DS_ASSERT(alignof(T) <= m_block_alignment, "Object alignment exceeds block alignment");
 
 			void* memory = Allocate();
 			if (!memory)
@@ -110,7 +111,7 @@ namespace destan::core::memory
 		/**
 		 * Returns the block size in bytes
 		 */
-		destan_u64 Get_Block_Size() const
+		ds_u64 Get_Block_Size() const
 		{
 			return m_block_size;
 		}
@@ -118,7 +119,7 @@ namespace destan::core::memory
 		/**
 		 * Returns the block alignment in bytes
 		 */
-		destan_u64 Get_Block_Alignment() const
+		ds_u64 Get_Block_Alignment() const
 		{
 			return m_block_alignment;
 		}
@@ -126,7 +127,7 @@ namespace destan::core::memory
 		/**
 		 * Returns the number of blocks in the pool
 		 */
-		destan_u64 Get_Block_Count() const
+		ds_u64 Get_Block_Count() const
 		{
 			return m_block_count;
 		}
@@ -134,7 +135,7 @@ namespace destan::core::memory
 		/**
 		 * Returns the number of free blocks
 		 */
-		destan_u64 Get_Free_Block_Count() const
+		ds_u64 Get_Free_Block_Count() const
 		{
 			return m_free_blocks;
 		}
@@ -142,7 +143,7 @@ namespace destan::core::memory
 		/**
 		 * Returns the number of allocated blocks
 		 */
-		destan_u64 Get_Allocated_Block_Count() const
+		ds_u64 Get_Allocated_Block_Count() const
 		{
 			return m_block_count - m_free_blocks;
 		}
@@ -152,18 +153,18 @@ namespace destan::core::memory
 		 */
 		float Get_Utilization() const
 		{
-			return (static_cast<destan_f32>(Get_Allocated_Block_Count()) / static_cast<destan_f32>(m_block_count)) * 100.0f;
+			return (static_cast<ds_f32>(Get_Allocated_Block_Count()) / static_cast<ds_f32>(m_block_count)) * 100.0f;
 		}
 
 		/**
 		 *  Returns the name of this allocator
 		 */
-		const destan_char* Get_Name() const
+		const ds_char* Get_Name() const
 		{
 			return m_name;
 		}
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		/**
 		 * Debug version of Allocate that tracks the allocation
 		 */
@@ -185,7 +186,7 @@ namespace destan::core::memory
 		bool Is_Address_In_Pool(void* ptr) const;
 
 		// Gets the index of a block from its address
-		destan_u64 Get_Block_Index(void* ptr) const;
+		ds_u64 Get_Block_Index(void* ptr) const;
 
 		// Locks the pool for thread-safe operations (if enabled)
 		void Lock();
@@ -195,20 +196,20 @@ namespace destan::core::memory
 
 		// Memory block management
 		void* m_memory_pool = nullptr;     // Start of the memory pool
-		destan_u64 m_block_size = 0;       // Size of each block in bytes
-		destan_u64 m_padded_block_size = 0; // Block size with padding for alignment
-		destan_u64 m_block_alignment = 0;   // Alignment of blocks
-		destan_u64 m_block_count = 0;      // Total number of blocks
-		std::atomic<destan_u64> m_free_blocks{ 0 }; // Number of free blocks
+		ds_u64 m_block_size = 0;       // Size of each block in bytes
+		ds_u64 m_padded_block_size = 0; // Block size with padding for alignment
+		ds_u64 m_block_alignment = 0;   // Alignment of blocks
+		ds_u64 m_block_count = 0;      // Total number of blocks
+		std::atomic<ds_u64> m_free_blocks{ 0 }; // Number of free blocks
 
 		// Free list management
 		Free_Block* m_free_list = nullptr; // Head of the free list
 
 		// Fixed-size buffer for name
-		static constexpr destan_u64 MAX_NAME_LENGTH = 64;
+		static constexpr ds_u64 MAX_NAME_LENGTH = 64;
 		char m_name[MAX_NAME_LENGTH];
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// Debug tracking for allocations
 		struct Allocation_Info 
 		{
@@ -227,18 +228,18 @@ namespace destan::core::memory
 	};
 
 	// Helper macros for pool allocator
-#ifdef DESTAN_DEBUG
-#define DESTAN_POOL_ALLOC(pool) \
+#ifdef DS_DEBUG
+#define DS_POOL_ALLOC(pool) \
         (pool)->Allocate_Debug(__FILE__, __LINE__)
 #else
-#define DESTAN_POOL_ALLOC(pool) \
+#define DS_POOL_ALLOC(pool) \
         (pool)->Allocate()
 #endif
 
-#define DESTAN_POOL_CREATE(pool, type, ...) \
+#define DS_POOL_CREATE(pool, type, ...) \
     (pool)->Create<type>(__VA_ARGS__)
 
-#define DESTAN_POOL_DESTROY(pool, ptr) \
+#define DS_POOL_DESTROY(pool, ptr) \
     (pool)->Destroy(ptr)
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

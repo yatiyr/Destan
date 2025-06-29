@@ -1,4 +1,4 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/logger/logger.h>
 #include <core/logger/console_format.h>
 
@@ -8,7 +8,7 @@
 #include <sstream>
 #include <regex>
 
-namespace destan::core
+namespace ds::core
 {
     // Static members for theme
     static Theme_Struct s_current_theme = DEFAULT_THEME;
@@ -86,7 +86,7 @@ namespace destan::core
             }
         } // lock is released here
 
-        // We can't use DESTAN_LOG_INFO here directly as it would be recursive
+        // We can't use DS_LOG_INFO here directly as it would be recursive
         std::string msg = "Logger started";
         Log(Log_Level::INFO, msg);
 
@@ -119,7 +119,7 @@ namespace destan::core
             std::ofstream log_file;
             if (m_file_output_mode)
             {
-                log_file = std::ofstream("destan.log", std::ios::app);
+                log_file = std::ofstream("ds.log", std::ios::app);
             }
 
             // Get current time
@@ -161,7 +161,7 @@ namespace destan::core
         std::ofstream log_file;
         if (m_file_output_mode)
         {
-            log_file = std::ofstream("destan.log", std::ios::app);
+            log_file = std::ofstream("ds.log", std::ios::app);
         }
 
         while (m_running)

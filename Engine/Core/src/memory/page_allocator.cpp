@@ -1,19 +1,19 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/page_allocator.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
-#ifdef DESTAN_DEBUG
-    std::atomic<destan_u64> Page_Allocator::s_next_allocation_id{ 1 };
+#ifdef DS_DEBUG
+    std::atomic<ds_u64> Page_Allocator::s_next_allocation_id{ 1 };
 #endif
 
-    Page_Allocator::Page_Allocator(destan_u64 page_size, destan_u64 reserve_address_space_size, const destan_char* name)
+    Page_Allocator::Page_Allocator(ds_u64 page_size, ds_u64 reserve_address_space_size, const ds_char* name)
         : m_reserved_address_space_size(reserve_address_space_size)
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -25,7 +25,7 @@ namespace destan::core::memory
         {
             // Default name if none provided
             const char* default_name = "Page_Allocator";
-            destan_u64 i = 0;
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -54,25 +54,25 @@ namespace destan::core::memory
             m_reserved_address_space = Reserve_Address_Space(m_reserved_address_space_size, m_page_size);
             if (!m_reserved_address_space)
             {
-                DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to reserve {1} bytes of address space",
+                DS_LOG_ERROR("Page Allocator '{0}': Failed to reserve {1} bytes of address space",
                     m_name, m_reserved_address_space_size);
                 m_reserved_address_space_size = 0;
             }
             else
             {
-                DESTAN_LOG_INFO("Page Allocator '{0}': Reserved {1} MB of address space at {2}",
+                DS_LOG_INFO("Page Allocator '{0}': Reserved {1} MB of address space at {2}",
                     m_name, m_reserved_address_space_size / (1024 * 1024), m_reserved_address_space);
             }
         }
 
-        DESTAN_LOG_INFO("Page Allocator '{0}' created with page size {1} KB",
+        DS_LOG_INFO("Page Allocator '{0}' created with page size {1} KB",
             m_name, m_page_size / 1024);
     }
 
     Page_Allocator::~Page_Allocator()
     {
         // First, release all allocated pages
-        for (destan_u64 i = 0; i < m_page_info_count; i++)
+        for (ds_u64 i = 0; i < m_page_info_count; i++)
         {
             Page_Info& info = m_page_infos[i];
             if (info.base_address)
@@ -80,7 +80,7 @@ namespace destan::core::memory
                 // For memory-mapped files, we need to unmap them
                 if (info.file_path)
                 {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
                     UnmapViewOfFile(info.base_address);
 #else
                     munmap(info.base_address, info.size);
@@ -104,7 +104,7 @@ namespace destan::core::memory
             m_reserved_address_space_used = 0;
         }
 
-        DESTAN_LOG_INFO("Page Allocator '{0}' destroyed", m_name);
+        DS_LOG_INFO("Page Allocator '{0}' destroyed", m_name);
     }
 
     Page_Allocator::Page_Allocator(Page_Allocator&& other) noexcept
@@ -121,7 +121,7 @@ namespace destan::core::memory
         Memory::Memcpy(m_name, other.m_name, MAX_NAME_LENGTH);
 
         // Copy page infos
-        for (destan_u64 i = 0; i < m_page_info_count; i++)
+        for (ds_u64 i = 0; i < m_page_info_count; i++)
         {
             m_page_infos[i] = other.m_page_infos[i];
         }
@@ -155,7 +155,7 @@ namespace destan::core::memory
             Memory::Memcpy(m_name, other.m_name, MAX_NAME_LENGTH);
 
             // Copy page infos
-            for (destan_u64 i = 0; i < m_page_info_count; i++)
+            for (ds_u64 i = 0; i < m_page_info_count; i++)
             {
                 m_page_infos[i] = other.m_page_infos[i];
             }
@@ -173,7 +173,7 @@ namespace destan::core::memory
     void Page_Allocator::Initialize()
     {
         // Get the system page size
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         SYSTEM_INFO sys_info;
         GetSystemInfo(&sys_info);
         m_system_page_size = sys_info.dwPageSize;
@@ -214,24 +214,24 @@ namespace destan::core::memory
     bool Page_Allocator::Initialize_Memory_Mapping()
     {
         // Initialize platform-specific memory mapping
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         // Nothing special needed for Windows
         return true;
-#elif defined(DESTAN_PLATFORM_LINUX) || defined(DESTAN_PLATFORM_MACOS)
+#elif defined(DS_PLATFORM_LINUX) || defined(DS_PLATFORM_MACOS)
         // Nothing special needed for Unix-like systems
         return true;
 #else
-        DESTAN_LOG_ERROR("Page Allocator: Platform not supported");
+        DS_LOG_ERROR("Page Allocator: Platform not supported");
         return false;
 #endif
     }
 
-    void* Page_Allocator::Reserve_Address_Space(destan_u64 size, destan_u64 alignment)
+    void* Page_Allocator::Reserve_Address_Space(ds_u64 size, ds_u64 alignment)
     {
         // Align size to page size
         size = Memory::Align_Size(size, m_system_page_size);
 
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         // On Windows, VirtualAlloc with MEM_RESERVE reserves address space without committing physical memory
         return VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
 #else
@@ -245,11 +245,11 @@ namespace destan::core::memory
 #endif
     }
 
-    void Page_Allocator::Release_Address_Space(void* ptr, destan_u64 size)
+    void Page_Allocator::Release_Address_Space(void* ptr, ds_u64 size)
     {
         if (!ptr) return;
 
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         // On Windows, VirtualFree with MEM_RELEASE releases address space
         VirtualFree(ptr, 0, MEM_RELEASE);
 #else
@@ -258,18 +258,18 @@ namespace destan::core::memory
 #endif
     }
 
-    void* Page_Allocator::Map_File_To_Memory(const destan_char* file_path, destan_u64 file_offset,
-        destan_u64& size, Page_Protection protection)  // Note: size is now a reference
+    void* Page_Allocator::Map_File_To_Memory(const ds_char* file_path, ds_u64 file_offset,
+        ds_u64& size, Page_Protection protection)  // Note: size is now a reference
     {
         if (!file_path || size == 0) return nullptr;
 
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         // Open the file
         HANDLE file_handle = CreateFileA(file_path, GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file_handle == INVALID_HANDLE_VALUE)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to open file {1}", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to open file {1}", m_name, file_path);
             return nullptr;
         }
 
@@ -291,16 +291,16 @@ namespace destan::core::memory
         LARGE_INTEGER file_size;
         if (!GetFileSizeEx(file_handle, &file_size))
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
             CloseHandle(file_handle);
             return nullptr;
         }
 
         // Adjust size if needed
-        destan_u64 actual_file_size = static_cast<destan_u64>(file_size.QuadPart);
+        ds_u64 actual_file_size = static_cast<ds_u64>(file_size.QuadPart);
         if (size > actual_file_size)
         {
-            DESTAN_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
+            DS_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
                 m_name, size / 1024, actual_file_size / 1024, file_path);
             size = actual_file_size;  // Update the reference parameter
         }
@@ -314,7 +314,7 @@ namespace destan::core::memory
         if (!mapping_handle)
         {
             CloseHandle(file_handle);
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to create file mapping for {1}", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to create file mapping for {1}", m_name, file_path);
             return nullptr;
         }
 
@@ -347,7 +347,7 @@ namespace destan::core::memory
 
         if (!mapped_address)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to map file {1} into memory", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to map file {1} into memory", m_name, file_path);
             return nullptr;
         }
 
@@ -357,7 +357,7 @@ namespace destan::core::memory
         int fd = open(file_path, O_RDWR);
         if (fd == -1)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to open file {1}", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to open file {1}", m_name, file_path);
             return nullptr;
         }
 
@@ -365,16 +365,16 @@ namespace destan::core::memory
         struct stat file_stat;
         if (fstat(fd, &file_stat) == -1)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to get file size for {1}", m_name, file_path);
             close(fd);
             return nullptr;
         }
 
         // Adjust size if needed
-        destan_u64 actual_file_size = static_cast<destan_u64>(file_stat.st_size);
+        ds_u64 actual_file_size = static_cast<ds_u64>(file_stat.st_size);
         if (size > actual_file_size)
         {
-            DESTAN_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
+            DS_LOG_WARN("Page Allocator '{0}': Requested size {1} KB exceeds file size {2} KB for {3}",
                 m_name, size / 1024, actual_file_size / 1024, file_path);
             size = actual_file_size;  // Update the reference parameter
         }
@@ -405,7 +405,7 @@ namespace destan::core::memory
 
         if (mapped_address == MAP_FAILED)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to map file {1} into memory", m_name, file_path);
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to map file {1} into memory", m_name, file_path);
             return nullptr;
         }
 
@@ -413,9 +413,9 @@ namespace destan::core::memory
 #endif
     }
 
-    destan_u32 Page_Allocator::Convert_Protection_Flags(Page_Protection protection)
+    ds_u32 Page_Allocator::Convert_Protection_Flags(Page_Protection protection)
     {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         switch (protection)
         {
         case Page_Protection::READ_ONLY:
@@ -446,27 +446,27 @@ namespace destan::core::memory
 #endif
     }
 
-    void* Page_Allocator::Allocate(destan_u64 size, Page_Protection protection, Page_Flags flags,
-        const destan_char* file_path, destan_u64 file_offset)
+    void* Page_Allocator::Allocate(ds_u64 size, Page_Protection protection, Page_Flags flags,
+        const ds_char* file_path, ds_u64 file_offset)
     {
         Lock();
 
         // Validate allocation size
         if (size == 0)
         {
-            DESTAN_LOG_WARN("Page Allocator '{0}': Attempted to allocate 0 bytes", m_name);
+            DS_LOG_WARN("Page Allocator '{0}': Attempted to allocate 0 bytes", m_name);
             Unlock();
             return nullptr;
         }
 
         // Round size up to page size
-        destan_u64 aligned_size = Memory::Align_Size(size, m_page_size);
-        destan_u64 page_count = aligned_size / m_page_size;
+        ds_u64 aligned_size = Memory::Align_Size(size, m_page_size);
+        ds_u64 page_count = aligned_size / m_page_size;
 
         // Check if we have room to track this allocation
         if (m_page_info_count >= MAX_PAGE_ALLOCATIONS)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Maximum number of page allocations ({1}) reached",
+            DS_LOG_ERROR("Page Allocator '{0}': Maximum number of page allocations ({1}) reached",
                 m_name, MAX_PAGE_ALLOCATIONS);
             Unlock();
             return nullptr;
@@ -497,12 +497,12 @@ namespace destan::core::memory
                 m_reserved_address_space_used + aligned_size <= m_reserved_address_space_size)
             {
                 // Use the next portion of our pre-reserved address space
-                destan_u8* base = static_cast<destan_u8*>(m_reserved_address_space) + m_reserved_address_space_used;
+                ds_u8* base = static_cast<ds_u8*>(m_reserved_address_space) + m_reserved_address_space_used;
 
                 // Commit the memory if requested
                 if (Has_Flag(flags, Page_Flags::COMMIT))
                 {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
                     // Use initial_protection which might be READ_WRITE for zeroing
                     allocation = VirtualAlloc(base, aligned_size, MEM_COMMIT, Convert_Protection_Flags(initial_protection));
 #else
@@ -527,7 +527,7 @@ namespace destan::core::memory
             else
             {
                 // Allocate new pages
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
                 DWORD alloc_type = MEM_RESERVE;
                 if (Has_Flag(flags, Page_Flags::COMMIT))
                 {
@@ -544,7 +544,7 @@ namespace destan::core::memory
                 int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
                 // Some platforms support large pages via special flags
-#if defined(DESTAN_PLATFORM_LINUX) && defined(MAP_HUGETLB)
+#if defined(DS_PLATFORM_LINUX) && defined(MAP_HUGETLB)
                 if (Has_Flag(flags, Page_Flags::LARGE_PAGES) && m_large_page_size > 0)
                 {
                     mmap_flags |= MAP_HUGETLB;
@@ -562,7 +562,7 @@ namespace destan::core::memory
 
         if (!allocation)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to allocate {1} bytes ({2} pages)",
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to allocate {1} bytes ({2} pages)",
                 m_name, aligned_size, page_count);
             Unlock();
             return nullptr;
@@ -577,16 +577,16 @@ namespace destan::core::memory
         // Change protection to READ_ONLY if we temporarily used READ_WRITE
         if (initial_protection != protection)
         {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
             DWORD old_protect;
             if (!VirtualProtect(allocation, aligned_size, Convert_Protection_Flags(protection), &old_protect))
             {
-                DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
+                DS_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
             }
 #else
             if (mprotect(allocation, aligned_size, Convert_Protection_Flags(protection)) != 0)
             {
-                DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
+                DS_LOG_ERROR("Page Allocator '{0}': Failed to change protection after initialization", m_name);
             }
 #endif
         }
@@ -595,12 +595,12 @@ namespace destan::core::memory
         if (Has_Flag(flags, Page_Flags::GUARD))
         {
             // Allocate additional guard pages before and after the allocation
-#ifdef DESTAN_PLATFORM_WINDOWS
-            VirtualAlloc(static_cast<destan_u8*>(allocation) - m_page_size, m_page_size, MEM_COMMIT, PAGE_NOACCESS);
-            VirtualAlloc(static_cast<destan_u8*>(allocation) + aligned_size, m_page_size, MEM_COMMIT, PAGE_NOACCESS);
+#ifdef DS_PLATFORM_WINDOWS
+            VirtualAlloc(static_cast<ds_u8*>(allocation) - m_page_size, m_page_size, MEM_COMMIT, PAGE_NOACCESS);
+            VirtualAlloc(static_cast<ds_u8*>(allocation) + aligned_size, m_page_size, MEM_COMMIT, PAGE_NOACCESS);
 #else
-            void* guard_before = static_cast<destan_u8*>(allocation) - m_page_size;
-            void* guard_after = static_cast<destan_u8*>(allocation) + aligned_size;
+            void* guard_before = static_cast<ds_u8*>(allocation) - m_page_size;
+            void* guard_after = static_cast<ds_u8*>(allocation) + aligned_size;
 
             mprotect(guard_before, m_page_size, PROT_NONE);
             mprotect(guard_after, m_page_size, PROT_NONE);
@@ -616,7 +616,7 @@ namespace destan::core::memory
         info.flags = flags;
         info.file_path = file_path;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         info.allocation_id = s_next_allocation_id.fetch_add(1, std::memory_order_relaxed);
         info.allocation_file = nullptr;
         info.allocation_line = 0;
@@ -625,7 +625,7 @@ namespace destan::core::memory
         // Update stats
         m_allocated_page_count += page_count;
 
-        DESTAN_LOG_TRACE("Page Allocator '{0}': Allocated {1} bytes ({2} pages) at {3}",
+        DS_LOG_TRACE("Page Allocator '{0}': Allocated {1} bytes ({2} pages) at {3}",
             m_name, aligned_size, page_count, allocation);
 
         Unlock();
@@ -642,7 +642,7 @@ namespace destan::core::memory
         Lock();
 
         // Find the page info for this allocation
-        for (destan_u64 i = 0; i < m_page_info_count; i++)
+        for (ds_u64 i = 0; i < m_page_info_count; i++)
         {
             if (m_page_infos[i].base_address == ptr)
             {
@@ -651,7 +651,7 @@ namespace destan::core::memory
                 // Handle memory-mapped files
                 if (info.file_path)
                 {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
                     UnmapViewOfFile(ptr);
 #else
                     munmap(ptr, info.size);
@@ -660,7 +660,7 @@ namespace destan::core::memory
                 else
                 {
                     // Regular memory pages
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
                     VirtualFree(ptr, 0, MEM_RELEASE);
 #else
                     munmap(ptr, info.size);
@@ -670,7 +670,7 @@ namespace destan::core::memory
                 // Update stats
                 m_allocated_page_count -= info.page_count;
 
-                DESTAN_LOG_TRACE("Page Allocator '{0}': Deallocated {1} bytes ({2} pages) at {3}",
+                DS_LOG_TRACE("Page Allocator '{0}': Deallocated {1} bytes ({2} pages) at {3}",
                     m_name, info.size, info.page_count, ptr);
 
                 // Remove this entry by copying the last entry to this position
@@ -688,7 +688,7 @@ namespace destan::core::memory
             }
         }
 
-        DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to deallocate unknown address {1}",
+        DS_LOG_ERROR("Page Allocator '{0}': Attempted to deallocate unknown address {1}",
             m_name, ptr);
 
         Unlock();
@@ -708,14 +708,14 @@ namespace destan::core::memory
         const Page_Info* info = Get_Page_Info(ptr);
         if (!info)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to protect unknown address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Attempted to protect unknown address {1}",
                 m_name, ptr);
             Unlock();
             return false;
         }
 
         // Change protection
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         DWORD old_protect;
         bool result = VirtualProtect(ptr, info->size, Convert_Protection_Flags(protection), &old_protect) != 0;
 #else
@@ -724,7 +724,7 @@ namespace destan::core::memory
 
         if (!result)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to change protection for address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to change protection for address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -732,7 +732,7 @@ namespace destan::core::memory
 
         // Update the stored protection
         // Find the page info again since we need a non-const reference
-        for (destan_u64 i = 0; i < m_page_info_count; i++)
+        for (ds_u64 i = 0; i < m_page_info_count; i++)
         {
             if (m_page_infos[i].base_address == ptr)
             {
@@ -745,7 +745,7 @@ namespace destan::core::memory
         return true;
     }
 
-    bool Page_Allocator::Commit(void* ptr, destan_u64 size)
+    bool Page_Allocator::Commit(void* ptr, ds_u64 size)
     {
         if (!ptr || size == 0)
         {
@@ -758,7 +758,7 @@ namespace destan::core::memory
         const Page_Info* info = Get_Page_Info(ptr);
         if (!info)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to commit unknown address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Attempted to commit unknown address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -767,14 +767,14 @@ namespace destan::core::memory
         // Ensure size is within bounds
         if (size > info->size)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Commit size {1} exceeds allocation size {2}",
+            DS_LOG_ERROR("Page Allocator '{0}': Commit size {1} exceeds allocation size {2}",
                 m_name, size, info->size);
             Unlock();
             return false;
         }
 
         // Commit the memory
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         bool result = VirtualAlloc(ptr, size, MEM_COMMIT, Convert_Protection_Flags(info->protection)) != nullptr;
 #else
         // On Unix, we might need to use madvise to ensure pages are resident
@@ -783,7 +783,7 @@ namespace destan::core::memory
 
         if (!result)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to commit memory at address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to commit memory at address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -793,7 +793,7 @@ namespace destan::core::memory
         return true;
     }
 
-    bool Page_Allocator::Decommit(void* ptr, destan_u64 size)
+    bool Page_Allocator::Decommit(void* ptr, ds_u64 size)
     {
         if (!ptr || size == 0)
         {
@@ -806,7 +806,7 @@ namespace destan::core::memory
         const Page_Info* info = Get_Page_Info(ptr);
         if (!info)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to decommit unknown address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Attempted to decommit unknown address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -815,14 +815,14 @@ namespace destan::core::memory
         // Ensure size is within bounds
         if (size > info->size)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Decommit size {1} exceeds allocation size {2}",
+            DS_LOG_ERROR("Page Allocator '{0}': Decommit size {1} exceeds allocation size {2}",
                 m_name, size, info->size);
             Unlock();
             return false;
         }
 
         // Decommit the memory
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         bool result = VirtualFree(ptr, size, MEM_DECOMMIT) != 0;
 #else
         // On Unix, we use MADV_DONTNEED to release physical pages
@@ -831,7 +831,7 @@ namespace destan::core::memory
 
         if (!result)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to decommit memory at address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to decommit memory at address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -841,7 +841,7 @@ namespace destan::core::memory
         return true;
     }
 
-    bool Page_Allocator::Flush(void* ptr, destan_u64 size)
+    bool Page_Allocator::Flush(void* ptr, ds_u64 size)
     {
         if (!ptr || size == 0)
         {
@@ -854,7 +854,7 @@ namespace destan::core::memory
         const Page_Info* info = Get_Page_Info(ptr);
         if (!info)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to flush unknown address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Attempted to flush unknown address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -863,7 +863,7 @@ namespace destan::core::memory
         // Ensure this is a memory-mapped file
         if (!info->file_path)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Attempted to flush non-file-mapped memory at {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Attempted to flush non-file-mapped memory at {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -872,14 +872,14 @@ namespace destan::core::memory
         // Ensure size is within bounds
         if (size > info->size)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Flush size {1} exceeds allocation size {2}",
+            DS_LOG_ERROR("Page Allocator '{0}': Flush size {1} exceeds allocation size {2}",
                 m_name, size, info->size);
             Unlock();
             return false;
         }
 
         // Flush the memory
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         bool result = FlushViewOfFile(ptr, size) != 0;
 #else
         bool result = msync(ptr, size, MS_SYNC) == 0;
@@ -887,7 +887,7 @@ namespace destan::core::memory
 
         if (!result)
         {
-            DESTAN_LOG_ERROR("Page Allocator '{0}': Failed to flush memory at address {1}",
+            DS_LOG_ERROR("Page Allocator '{0}': Failed to flush memory at address {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -902,13 +902,13 @@ namespace destan::core::memory
         if (!ptr) return nullptr;
 
         // Check if this pointer is within any of our allocations
-        for (destan_u64 i = 0; i < m_page_info_count; i++)
+        for (ds_u64 i = 0; i < m_page_info_count; i++)
         {
             const Page_Info& info = m_page_infos[i];
 
-            destan_u8* base = static_cast<destan_u8*>(info.base_address);
-            destan_u8* end = base + info.size;
-            destan_u8* check_ptr = static_cast<destan_u8*>(ptr);
+            ds_u8* base = static_cast<ds_u8*>(info.base_address);
+            ds_u8* end = base + info.size;
+            ds_u8* check_ptr = static_cast<ds_u8*>(ptr);
 
             if (check_ptr >= base && check_ptr < end)
             {
@@ -924,9 +924,9 @@ namespace destan::core::memory
         return Get_Page_Info(ptr) != nullptr;
     }
 
-    destan_u64 Page_Allocator::Get_System_Page_Size()
+    ds_u64 Page_Allocator::Get_System_Page_Size()
     {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         SYSTEM_INFO sys_info;
         GetSystemInfo(&sys_info);
         return sys_info.dwPageSize;
@@ -935,9 +935,9 @@ namespace destan::core::memory
 #endif
     }
 
-    destan_u64 Page_Allocator::Get_Large_Page_Size()
+    ds_u64 Page_Allocator::Get_Large_Page_Size()
     {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         return GetLargePageMinimum();
 #else
         // On Linux, large pages are typically 2MB or 1GB
@@ -946,10 +946,10 @@ namespace destan::core::memory
 #endif
     }
 
-#ifdef DESTAN_DEBUG
-    void* Page_Allocator::Allocate_Debug(destan_u64 size, Page_Protection protection, Page_Flags flags,
-        const destan_char* file_path, destan_u64 file_offset,
-        const destan_char* allocation_file, destan_i32 allocation_line)
+#ifdef DS_DEBUG
+    void* Page_Allocator::Allocate_Debug(ds_u64 size, Page_Protection protection, Page_Flags flags,
+        const ds_char* file_path, ds_u64 file_offset,
+        const ds_char* allocation_file, ds_i32 allocation_line)
     {
         void* result = Allocate(size, protection, flags, file_path, file_offset);
 
@@ -958,7 +958,7 @@ namespace destan::core::memory
             // Update debug information
             Lock();
 
-            for (destan_u64 i = 0; i < m_page_info_count; i++)
+            for (ds_u64 i = 0; i < m_page_info_count; i++)
             {
                 if (m_page_infos[i].base_address == result)
                 {
@@ -1000,7 +1000,7 @@ namespace destan::core::memory
             ss << "    Size    | Pages |   Address   | Protection | Source" << std::endl;
             ss << "----------------------------------------------------------" << std::endl;
 
-            for (destan_u64 i = 0; i < m_page_info_count; i++)
+            for (ds_u64 i = 0; i < m_page_info_count; i++)
             {
                 const Page_Info& info = m_page_infos[i];
 
@@ -1046,10 +1046,10 @@ namespace destan::core::memory
         }
 
         ss << "==================================================";
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
 
         Unlock();
     }
 #endif
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

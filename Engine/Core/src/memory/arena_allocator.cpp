@@ -1,16 +1,16 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/arena_allocator.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
 
-    Arena_Allocator::Arena_Allocator(destan_u64 size_bytes, const char* name)
+    Arena_Allocator::Arena_Allocator(ds_u64 size_bytes, const char* name)
         : m_size(size_bytes)
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -22,7 +22,7 @@ namespace destan::core::memory
         {
             // Default name if none provided
             const char* default_name = "Pool";
-            destan_u64 i = 0;
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -33,23 +33,23 @@ namespace destan::core::memory
 
         // Allocate the memory block using our core memory system
         m_memory_block = Memory::Malloc(size_bytes, CACHE_LINE_SIZE);
-        DESTAN_ASSERT(m_memory_block, "Failed to allocate memory for Pool Allocator");
+        DS_ASSERT(m_memory_block, "Failed to allocate memory for Pool Allocator");
 
         // Initialize pointers
-        m_start_pos = static_cast<destan_char*>(m_memory_block);
+        m_start_pos = static_cast<ds_char*>(m_memory_block);
         m_current_pos = m_start_pos;
         m_end_pos = m_start_pos + size_bytes;
 
         // Initialize counters
         m_allocation_count = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Clear debug allocations
         m_debug_allocation_count = 0;
 
         // In debug mode, fill memory with a pattern to help identify uninitialized memory
         Memory::Memset(m_memory_block, 0xCD, size_bytes); // 0xCD = "Clean Dynamic memory"
-        DESTAN_LOG_INFO("Arena allocator '{0}' created with {1} bytes", m_name, size_bytes);
+        DS_LOG_INFO("Arena allocator '{0}' created with {1} bytes", m_name, size_bytes);
 #endif
     }
 
@@ -58,11 +58,11 @@ namespace destan::core::memory
         // Free the entire memory block
         if (m_memory_block)
         {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Check for memory leaks before freeing
             if (m_allocation_count > 0)
             {
-                DESTAN_LOG_WARN("Arena '{0}' destroyed with {1} active allocations ({2} bytes)",
+                DS_LOG_WARN("Arena '{0}' destroyed with {1} active allocations ({2} bytes)",
                     m_name, m_allocation_count, Get_Used_Size());
             }
 
@@ -97,10 +97,10 @@ namespace destan::core::memory
         other.m_size = 0;
         other.m_allocation_count = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Move debug allocation info
         m_debug_allocation_count = other.m_debug_allocation_count;
-        for (destan_u64 i = 0; i < m_debug_allocation_count; ++i)
+        for (ds_u64 i = 0; i < m_debug_allocation_count; ++i)
         {
             m_debug_allocations[i] = other.m_debug_allocations[i];
         }
@@ -137,10 +137,10 @@ namespace destan::core::memory
             other.m_size = 0;
             other.m_allocation_count = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Move debug allocation info
             m_debug_allocation_count = other.m_debug_allocation_count;
-            for (destan_u64 i = 0; i < m_debug_allocation_count; ++i)
+            for (ds_u64 i = 0; i < m_debug_allocation_count; ++i)
             {
                 m_debug_allocations[i] = other.m_debug_allocations[i];
             }
@@ -150,12 +150,12 @@ namespace destan::core::memory
         return *this;
     }
 
-    void* Arena_Allocator::Allocate(destan_u64 size, destan_u64 alignment)
+    void* Arena_Allocator::Allocate(ds_u64 size, ds_u64 alignment)
     {
         // Handle zero-size allocation
         if (size == 0)
         {
-            DESTAN_LOG_WARN("Arena '{0}': Attempted to allocate 0 bytes", m_name);
+            DS_LOG_WARN("Arena '{0}': Attempted to allocate 0 bytes", m_name);
             return nullptr;
         }
 
@@ -166,7 +166,7 @@ namespace destan::core::memory
         }
 
         // Verify alignment is a power of 2
-        DESTAN_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
+        DS_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
 
         // Calculate aligned address
         char* aligned_pos = reinterpret_cast<char*>(
@@ -177,10 +177,10 @@ namespace destan::core::memory
         if (aligned_pos + size > m_end_pos)
         {
             // Out of memory
-#ifdef DESTAN_DEBUG
-            DESTAN_LOG_ERROR("Arena '{0}' allocation failed: requested {1} bytes with {2} alignment, "
+#ifdef DS_DEBUG
+            DS_LOG_ERROR("Arena '{0}' allocation failed: requested {1} bytes with {2} alignment, "
                 "but only {3} bytes available",
-                m_name, size, alignment, static_cast<destan_u64>(m_end_pos - m_current_pos));
+                m_name, size, alignment, static_cast<ds_u64>(m_end_pos - m_current_pos));
 #endif
             return nullptr;
         }
@@ -194,13 +194,13 @@ namespace destan::core::memory
         return result;
     }
 
-    void Arena_Allocator::Reset(bool destruct_objects)
+    void Arena_Allocator::Reset()
     {
-#ifdef DESTAN_DEBUG
-        if (destruct_objects && m_debug_allocation_count > 0)
+#ifdef DS_DEBUG
+        if (m_debug_allocation_count > 0)
         {
             // Call destructors in reverse order (LIFO)
-            for (destan_u64 i = m_debug_allocation_count; i > 0; --i)
+            for (ds_u64 i = m_debug_allocation_count; i > 0; --i)
             {
                 // Note: We don't actually call destructors because we don't track types
                 // This is where a more advanced system could store type information
@@ -216,7 +216,7 @@ namespace destan::core::memory
 
         // Fill memory with pattern to help identify use-after-free
         Memory::Memset(m_memory_block, 0xCD, m_size);
-        DESTAN_LOG_INFO("Arena '{0}' reset: freed {1} allocations, {2} bytes",
+        DS_LOG_INFO("Arena '{0}' reset: freed {1} allocations, {2} bytes",
             m_name, m_allocation_count, Get_Used_Size());
 #endif
 
@@ -227,8 +227,8 @@ namespace destan::core::memory
         m_allocation_count = 0;
     }
 
-#ifdef DESTAN_DEBUG
-    void* Arena_Allocator::Allocate_Debug(destan_u64 size, destan_u64 alignment, const char* file, int line)
+#ifdef DS_DEBUG
+    void* Arena_Allocator::Allocate_Debug(ds_u64 size, ds_u64 alignment, const char* file, int line)
     {
         // Perform the allocation
         void* ptr = Allocate(size, alignment);
@@ -243,7 +243,7 @@ namespace destan::core::memory
         }
         else if (ptr && m_debug_allocation_count >= MAX_DEBUG_ALLOCATIONS)
         {
-            DESTAN_LOG_WARN("Arena '{0}': Debug allocation tracking limit reached ({1})",
+            DS_LOG_WARN("Arena '{0}': Debug allocation tracking limit reached ({1})",
                 m_name, MAX_DEBUG_ALLOCATIONS);
         }
 
@@ -268,12 +268,12 @@ namespace destan::core::memory
             ss << "   Size   |    Address    | Source Location" << std::endl;
             ss << "--------------------------------------------------" << std::endl;
 
-            const destan_u64 MAX_ALLOCATIONS_TO_SHOW = 20; // Limit for readability
-            const destan_u64 allocations_to_show =
+            const ds_u64 MAX_ALLOCATIONS_TO_SHOW = 20; // Limit for readability
+            const ds_u64 allocations_to_show =
                 (m_debug_allocation_count <= MAX_ALLOCATIONS_TO_SHOW) ?
                 m_debug_allocation_count : MAX_ALLOCATIONS_TO_SHOW;
 
-            for (destan_u64 i = 0; i < allocations_to_show; ++i)
+            for (ds_u64 i = 0; i < allocations_to_show; ++i)
             {
                 const auto& alloc = m_debug_allocations[i];
                 ss << "  " << std::setw(7) << alloc.size << " | "
@@ -289,7 +289,7 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
     }
 #endif
 

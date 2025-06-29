@@ -1,38 +1,38 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/streaming_allocator.h>
 
 // For getting current time
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
 #include <Windows.h>
 #else
 #include <sys/time.h>
 #endif
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
     // Helper function to get current time in milliseconds
-    destan_u64 GetCurrentTimeMS()
+    ds_u64 GetCurrentTimeMS()
     {
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         LARGE_INTEGER frequency, counter;
         QueryPerformanceFrequency(&frequency);
         QueryPerformanceCounter(&counter);
-        return static_cast<destan_u64>(counter.QuadPart * 1000 / frequency.QuadPart);
+        return static_cast<ds_u64>(counter.QuadPart * 1000 / frequency.QuadPart);
 #else
         struct timeval tv;
         gettimeofday(&tv, nullptr);
-        return static_cast<destan_u64>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+        return static_cast<ds_u64>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
 #endif
     }
 
-    Streaming_Allocator::Streaming_Allocator(const Config& config, const destan_char* name)
+    Streaming_Allocator::Streaming_Allocator(const Config& config, const ds_char* name)
         : m_config(config)
         , m_page_allocator(config.page_size, 0, "Streaming_Page_Allocator")
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -44,7 +44,7 @@ namespace destan::core::memory
         {
             // Default name if none provided
             const char* default_name = "Streaming_Allocator";
-            destan_u64 i = 0;
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -87,14 +87,14 @@ namespace destan::core::memory
         // Record start time
         m_last_update_time = GetCurrentTimeMS();
 
-        DESTAN_LOG_INFO("Streaming Allocator '{0}' initialized with {1} MB memory budget",
+        DS_LOG_INFO("Streaming Allocator '{0}' initialized with {1} MB memory budget",
             m_name, m_config.total_memory_budget / (1024 * 1024));
     }
 
     Streaming_Allocator::~Streaming_Allocator()
     {
         // Unload all resources
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
             if (entry.data && entry.info.state == Resource_State::RESIDENT)
@@ -105,7 +105,7 @@ namespace destan::core::memory
             }
         }
 
-        DESTAN_LOG_INFO("Streaming Allocator '{0}' destroyed. Stats: {1} resources, {2} MB loaded, {3} load operations",
+        DS_LOG_INFO("Streaming Allocator '{0}' destroyed. Stats: {1} resources, {2} MB loaded, {3} load operations",
             m_name, m_stats.resource_count, m_stats.total_memory_used / (1024 * 1024), m_stats.load_operations);
     }
 
@@ -149,7 +149,7 @@ namespace destan::core::memory
         if (this != &other)
         {
             // Clear existing resources
-            for (destan_u64 i = 0; i < m_resource_count; i++)
+            for (ds_u64 i = 0; i < m_resource_count; i++)
             {
                 if (m_resources[i].data && m_resources[i].info.state == Resource_State::RESIDENT)
                 {
@@ -212,7 +212,7 @@ namespace destan::core::memory
             if (existing->unloading_scheduled)
             {
                 existing->unloading_scheduled = false;
-                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Canceling unload for resource {1}",
+                DS_LOG_TRACE("Streaming Allocator '{0}': Canceling unload for resource {1}",
                     m_name, request.resource_id);
             }
 
@@ -264,7 +264,7 @@ namespace destan::core::memory
         // Check if we have room to track this resource
         if (m_resource_count >= MAX_RESOURCES)
         {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Maximum number of resources ({1}) reached",
+            DS_LOG_ERROR("Streaming Allocator '{0}': Maximum number of resources ({1}) reached",
                 m_name, MAX_RESOURCES);
             return handle;
         }
@@ -276,8 +276,8 @@ namespace destan::core::memory
         entry.info.id = request.resource_id > 0 ? request.resource_id : Generate_Resource_ID();
 
         // Copy path
-        destan_u64 path_len = strlen(request.path);
-        destan_u64 max_copy = std::min(path_len, static_cast<destan_u64>(255));
+        ds_u64 path_len = strlen(request.path);
+        ds_u64 max_copy = std::min(path_len, static_cast<ds_u64>(255));
         Memory::Memcpy(entry.info.path, request.path, max_copy);
         entry.info.path[max_copy] = '\0';
 
@@ -311,33 +311,33 @@ namespace destan::core::memory
         return handle;
     }
 
-    Resource_Handle Streaming_Allocator::Prefetch_Resource(const destan_char* path, Resource_Category category)
+    Resource_Handle Streaming_Allocator::Prefetch_Resource(const ds_char* path, Resource_Category category)
     {
         if (!path) {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Cannot prefetch resource with null path", m_name);
+            DS_LOG_ERROR("Streaming Allocator '{0}': Cannot prefetch resource with null path", m_name);
             return Resource_Handle();
         }
 
         // Detect the file size
-        destan_u64 file_size = 0;
+        ds_u64 file_size = 0;
 
-#ifdef DESTAN_PLATFORM_WINDOWS
+#ifdef DS_PLATFORM_WINDOWS
         WIN32_FILE_ATTRIBUTE_DATA file_info;
         if (GetFileAttributesExA(path, GetFileExInfoStandard, &file_info)) {
             LARGE_INTEGER size;
             size.LowPart = file_info.nFileSizeLow;
             size.HighPart = file_info.nFileSizeHigh;
-            file_size = static_cast<destan_u64>(size.QuadPart);
+            file_size = static_cast<ds_u64>(size.QuadPart);
         }
 #else
         struct stat file_stat;
         if (stat(path, &file_stat) == 0) {
-            file_size = static_cast<destan_u64>(file_stat.st_size);
+            file_size = static_cast<ds_u64>(file_stat.st_size);
         }
 #endif
 
         if (file_size == 0) {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to detect size for file {1}", m_name, path);
+            DS_LOG_ERROR("Streaming Allocator '{0}': Failed to detect size for file {1}", m_name, path);
             return Resource_Handle();
         }
 
@@ -395,7 +395,7 @@ namespace destan::core::memory
         if (entry->unloading_scheduled)
         {
             entry->unloading_scheduled = false;
-            DESTAN_LOG_TRACE("Streaming Allocator '{0}': Canceling unload for resource {1}",
+            DS_LOG_TRACE("Streaming Allocator '{0}': Canceling unload for resource {1}",
                 m_name, entry->info.id);
         }
 
@@ -435,7 +435,7 @@ namespace destan::core::memory
         // spatial database or resource registry to find nearby resources.
 
         // For now, just log that we intend to prefetch
-        DESTAN_LOG_TRACE("Streaming Allocator '{0}': Prefetching resources at position ({1}, {2}, {3}) with radius {4}",
+        DS_LOG_TRACE("Streaming Allocator '{0}': Prefetching resources at position ({1}, {2}, {3}) with radius {4}",
             m_name, position_x, position_y, position_z, radius);
 
         // The implementation would depend on how resources are organized spatially
@@ -502,7 +502,7 @@ namespace destan::core::memory
         // Don't unload critical resources
         if (entry->info.priority == Resource_Priority::CRITICAL)
         {
-            DESTAN_LOG_WARN("Streaming Allocator '{0}': Cannot unload critical resource {1}",
+            DS_LOG_WARN("Streaming Allocator '{0}': Cannot unload critical resource {1}",
                 m_name, entry->info.id);
             return false;
         }
@@ -510,7 +510,7 @@ namespace destan::core::memory
         // If it has references, we can't unload it
         if (entry->info.reference_count > 0)
         {
-            DESTAN_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1} with {2} references",
+            DS_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1} with {2} references",
                 m_name, entry->info.id, entry->info.reference_count);
             return false;
         }
@@ -532,7 +532,7 @@ namespace destan::core::memory
         // For memory-mapped files that have been modified, we need to flush changes to disk
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
 
@@ -547,12 +547,12 @@ namespace destan::core::memory
 
                 if (flush_result)
                 {
-                    DESTAN_LOG_TRACE("Streaming Allocator '{0}': Flushed resource {1} to disk",
+                    DS_LOG_TRACE("Streaming Allocator '{0}': Flushed resource {1} to disk",
                         m_name, entry.info.id);
                 }
                 else
                 {
-                    DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to flush resource {1} to disk",
+                    DS_LOG_ERROR("Streaming Allocator '{0}': Failed to flush resource {1} to disk",
                         m_name, entry.info.id);
                 }
             }
@@ -564,8 +564,8 @@ namespace destan::core::memory
         std::lock_guard<std::mutex> lock(m_mutex);
 
         // Get current time
-        destan_u64 current_time = GetCurrentTimeMS();
-        destan_u64 time_since_last_update = current_time - m_last_update_time;
+        ds_u64 current_time = GetCurrentTimeMS();
+        ds_u64 time_since_last_update = current_time - m_last_update_time;
         m_last_update_time = current_time;
 
         // Update resource distances based on player position
@@ -583,7 +583,7 @@ namespace destan::core::memory
         // Log detailed stats if enabled
         if (m_config.log_detailed_stats)
         {
-            DESTAN_LOG_INFO("Streaming Allocator '{0}': {1} resources, {2}/{3} MB used, {4} loading, {5} operations pending",
+            DS_LOG_INFO("Streaming Allocator '{0}': {1} resources, {2}/{3} MB used, {4} loading, {5} operations pending",
                 m_name, m_stats.resource_count,
                 m_stats.total_memory_used / (1024 * 1024),
                 m_stats.total_memory_budget / (1024 * 1024),
@@ -618,7 +618,7 @@ namespace destan::core::memory
         std::lock_guard<std::mutex> lock(m_mutex);
 
         // Unload all non-critical resources
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
 
@@ -634,17 +634,17 @@ namespace destan::core::memory
             {
                 Schedule_Resource_Unload(&entry);
 
-                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Cleared non-critical resource {1}",
+                DS_LOG_TRACE("Streaming Allocator '{0}': Cleared non-critical resource {1}",
                     m_name, entry.info.id);
             }
         }
     }
 
     // Find resource entry by ID
-    Streaming_Allocator::Resource_Entry* Streaming_Allocator::Find_Resource_Entry(destan_u64 resource_id)
+    Streaming_Allocator::Resource_Entry* Streaming_Allocator::Find_Resource_Entry(ds_u64 resource_id)
     {
         // Linear search through resources
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             if (m_resources[i].info.id == resource_id)
             {
@@ -656,10 +656,10 @@ namespace destan::core::memory
     }
 
     // Const version of find resource entry by ID
-    const Streaming_Allocator::Resource_Entry* Streaming_Allocator::Find_Resource_Entry(destan_u64 resource_id) const
+    const Streaming_Allocator::Resource_Entry* Streaming_Allocator::Find_Resource_Entry(ds_u64 resource_id) const
     {
         // Linear search through resources
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             if (m_resources[i].info.id == resource_id)
             {
@@ -700,8 +700,8 @@ namespace destan::core::memory
     void Streaming_Allocator::Process_IO_Operations()
     {
         // Process a limited number of operations per frame for smooth performance
-        const destan_u32 max_operations_per_update = m_config.max_concurrent_operations;
-        destan_u32 operations_processed = 0;
+        const ds_u32 max_operations_per_update = m_config.max_concurrent_operations;
+        ds_u32 operations_processed = 0;
 
         // First, check if any active operations have completed
         // TODO_EREN: In a real async implementation, we would check completion status here
@@ -770,7 +770,7 @@ namespace destan::core::memory
         // Update stats
         m_stats.loading_count++;
 
-        DESTAN_LOG_TRACE("Streaming Allocator '{0}': Scheduled load for resource {1} with priority {2}",
+        DS_LOG_TRACE("Streaming Allocator '{0}': Scheduled load for resource {1} with priority {2}",
             m_name, entry->info.id, static_cast<int>(entry->info.priority));
     }
 
@@ -785,7 +785,7 @@ namespace destan::core::memory
         // Cannot unload if it has references
         if (entry->info.reference_count > 0)
         {
-            DESTAN_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1} with {2} references",
+            DS_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1} with {2} references",
                 m_name, entry->info.id, entry->info.reference_count);
             return;
         }
@@ -804,7 +804,7 @@ namespace destan::core::memory
         // Add to pending operations
         m_pending_operations.push_back(operation);
 
-        DESTAN_LOG_TRACE("Streaming Allocator '{0}': Scheduled unload for resource {1}",
+        DS_LOG_TRACE("Streaming Allocator '{0}': Scheduled unload for resource {1}",
             m_name, entry->info.id);
     }
 
@@ -815,7 +815,7 @@ namespace destan::core::memory
         Resource_Entry* entry = Find_Resource_Entry(operation.resource_id);
         if (!entry)
         {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Cannot find resource {1} for loading",
+            DS_LOG_ERROR("Streaming Allocator '{0}': Cannot find resource {1} for loading",
                 m_name, operation.resource_id);
             return;
         }
@@ -827,7 +827,7 @@ namespace destan::core::memory
         if (!Has_Available_Memory(entry->info.category, entry->info.size))
         {
             // Try to free up memory by unloading low-priority resources
-            DESTAN_LOG_WARN("Streaming Allocator '{0}': Not enough memory for resource {1}, attempting to free memory",
+            DS_LOG_WARN("Streaming Allocator '{0}': Not enough memory for resource {1}, attempting to free memory",
                 m_name, entry->info.id);
 
             // We'll need to implement a memory freeing strategy
@@ -885,12 +885,12 @@ namespace destan::core::memory
             // Log success or failure
             if (data)
             {
-                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Memory mapped file {1} ({2} KB)",
+                DS_LOG_TRACE("Streaming Allocator '{0}': Memory mapped file {1} ({2} KB)",
                     m_name, entry->info.path, entry->info.size / 1024);
             }
             else
             {
-                DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to memory map file {1}",
+                DS_LOG_ERROR("Streaming Allocator '{0}': Failed to memory map file {1}",
                     m_name, entry->info.path);
 
                 // Mark resource as failed
@@ -911,7 +911,7 @@ namespace destan::core::memory
 
             if (!data)
             {
-                DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to allocate memory for resource {1}",
+                DS_LOG_ERROR("Streaming Allocator '{0}': Failed to allocate memory for resource {1}",
                     m_name, entry->info.id);
 
                 entry->info.state = Resource_State::FAILED;
@@ -931,23 +931,23 @@ namespace destan::core::memory
                     file.read(static_cast<char*>(data), entry->info.size);
 
                     // Check if we read the expected amount
-                    destan_u64 bytes_read = static_cast<destan_u64>(file.gcount());
+                    ds_u64 bytes_read = static_cast<ds_u64>(file.gcount());
                     if (bytes_read < entry->info.size)
                     {
                         // Fill the rest with zeros
-                        Memory::Memset(static_cast<destan_u8*>(data) + bytes_read, 0, entry->info.size - bytes_read);
+                        Memory::Memset(static_cast<ds_u8*>(data) + bytes_read, 0, entry->info.size - bytes_read);
 
-                        DESTAN_LOG_WARN("Streaming Allocator '{0}': File {1} was smaller than expected ({2} vs {3} bytes)",
+                        DS_LOG_WARN("Streaming Allocator '{0}': File {1} was smaller than expected ({2} vs {3} bytes)",
                             m_name, entry->info.path, bytes_read, entry->info.size);
                     }
 
-                    DESTAN_LOG_TRACE("Streaming Allocator '{0}': Loaded file {1} ({2} bytes)",
+                    DS_LOG_TRACE("Streaming Allocator '{0}': Loaded file {1} ({2} bytes)",
                         m_name, entry->info.path, bytes_read);
                 }
                 else
                 {
                     // File couldn't be opened
-                    DESTAN_LOG_ERROR("Streaming Allocator '{0}': Failed to open file {1}",
+                    DS_LOG_ERROR("Streaming Allocator '{0}': Failed to open file {1}",
                         m_name, entry->info.path);
 
                     // Initialize memory to zeros
@@ -963,7 +963,7 @@ namespace destan::core::memory
         entry->info.state = Resource_State::RESIDENT;
 
         // Update memory usage
-        Update_Memory_Usage(entry->info.category, static_cast<destan_i64>(entry->info.size));
+        Update_Memory_Usage(entry->info.category, static_cast<ds_i64>(entry->info.size));
 
         // Update stats
         m_stats.loading_count--;
@@ -976,7 +976,7 @@ namespace destan::core::memory
             entry->callback(entry->info.id, entry->data, entry->info.size, entry->user_data);
         }
 
-        DESTAN_LOG_TRACE("Streaming Allocator '{0}': Loaded resource {1} ({2} KB)",
+        DS_LOG_TRACE("Streaming Allocator '{0}': Loaded resource {1} ({2} KB)",
             m_name, entry->info.id, entry->info.size / 1024);
     }
 
@@ -987,7 +987,7 @@ namespace destan::core::memory
         Resource_Entry* entry = Find_Resource_Entry(operation.resource_id);
         if (!entry)
         {
-            DESTAN_LOG_ERROR("Streaming Allocator '{0}': Cannot find resource {1} for unloading",
+            DS_LOG_ERROR("Streaming Allocator '{0}': Cannot find resource {1} for unloading",
                 m_name, operation.resource_id);
             return;
         }
@@ -998,7 +998,7 @@ namespace destan::core::memory
         // Skip if resource is not resident or has references
         if (entry->info.state != Resource_State::UNLOADING || entry->info.reference_count > 0)
         {
-            DESTAN_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1}, state={2}, refs={3}",
+            DS_LOG_WARN("Streaming Allocator '{0}': Cannot unload resource {1}, state={2}, refs={3}",
                 m_name, entry->info.id, static_cast<int>(entry->info.state), entry->info.reference_count);
             return;
         }
@@ -1007,7 +1007,7 @@ namespace destan::core::memory
         if (entry->access_mode == Access_Mode::PERSISTENT_WRITE && entry->data)
         {
             m_page_allocator.Flush(entry->data, entry->info.size);
-            DESTAN_LOG_TRACE("Streaming Allocator '{0}': Flushed changes to file {1}",
+            DS_LOG_TRACE("Streaming Allocator '{0}': Flushed changes to file {1}",
                 m_name, entry->info.path);
         }
 
@@ -1019,7 +1019,7 @@ namespace destan::core::memory
         }
 
         // Update memory usage
-        Update_Memory_Usage(entry->info.category, -static_cast<destan_i64>(entry->info.size));
+        Update_Memory_Usage(entry->info.category, -static_cast<ds_i64>(entry->info.size));
 
         // Mark as unloaded
         entry->info.state = Resource_State::UNLOADED;
@@ -1028,24 +1028,24 @@ namespace destan::core::memory
         m_stats.bytes_unloaded += entry->info.size;
         m_stats.unload_operations++;
 
-        DESTAN_LOG_TRACE("Streaming Allocator '{0}': Unloaded resource {1}",
+        DS_LOG_TRACE("Streaming Allocator '{0}': Unloaded resource {1}",
             m_name, entry->info.id);
     }
 
     // Check if there is available memory for a resource
-    bool Streaming_Allocator::Has_Available_Memory(Resource_Category category, destan_u64 size) const
+    bool Streaming_Allocator::Has_Available_Memory(Resource_Category category, ds_u64 size) const
     {
         int category_index = static_cast<int>(category);
 
         // Check if adding this size would exceed the category budget
-        destan_u64 category_used = m_category_memory_used[category_index];
-        destan_u64 category_budget = m_category_memory_budget[category_index];
+        ds_u64 category_used = m_category_memory_used[category_index];
+        ds_u64 category_budget = m_category_memory_budget[category_index];
 
         return (category_used + size <= category_budget);
     }
 
     // Update memory usage statistics
-    void Streaming_Allocator::Update_Memory_Usage(Resource_Category category, destan_i64 size_delta)
+    void Streaming_Allocator::Update_Memory_Usage(Resource_Category category, ds_i64 size_delta)
     {
         int category_index = static_cast<int>(category);
 
@@ -1057,7 +1057,7 @@ namespace destan::core::memory
         else
         {
             // Ensure we don't underflow
-            destan_u64 abs_delta = static_cast<destan_u64>(-size_delta);
+            ds_u64 abs_delta = static_cast<ds_u64>(-size_delta);
             if (abs_delta > m_category_memory_used[category_index])
             {
                 m_category_memory_used[category_index] = 0;
@@ -1076,7 +1076,7 @@ namespace destan::core::memory
         else
         {
             // Ensure we don't underflow
-            destan_u64 abs_delta = static_cast<destan_u64>(-size_delta);
+            ds_u64 abs_delta = static_cast<ds_u64>(-size_delta);
             if (abs_delta > m_stats.total_memory_used)
             {
                 m_stats.total_memory_used = 0;
@@ -1092,16 +1092,16 @@ namespace destan::core::memory
     }
 
     // Get memory budget for a category
-    destan_u64 Streaming_Allocator::Get_Memory_Budget(Resource_Category category) const
+    ds_u64 Streaming_Allocator::Get_Memory_Budget(Resource_Category category) const
     {
         return m_category_memory_budget[static_cast<int>(category)];
     }
 
     // Generate a unique resource ID
-    destan_u64 Streaming_Allocator::Generate_Resource_ID()
+    ds_u64 Streaming_Allocator::Generate_Resource_ID()
     {
         // Use atomic increment to ensure thread safety
-        static std::atomic<destan_u64> next_id{ 1 };
+        static std::atomic<ds_u64> next_id{ 1 };
         return m_next_resource_id.fetch_add(1, std::memory_order_relaxed);
     }
 
@@ -1123,7 +1123,7 @@ namespace destan::core::memory
         // For this example, we'll use a simple formula to simulate distance
         // based on resource ID (just for demonstration purposes)
 
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
 
@@ -1145,9 +1145,9 @@ namespace destan::core::memory
     // Check and manage resource lifetimes based on usage
     void Streaming_Allocator::Check_Resource_Lifetimes()
     {
-        destan_u64 current_time = GetCurrentTimeMS();
+        ds_u64 current_time = GetCurrentTimeMS();
 
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
 
@@ -1176,15 +1176,15 @@ namespace destan::core::memory
             }
 
             // Check if the resource has timed out
-            destan_u64 time_since_last_use = current_time - entry.info.last_used_time;
-            destan_u64 timeout = m_config.cache_seconds * 1000;  // Convert to milliseconds
+            ds_u64 time_since_last_use = current_time - entry.info.last_used_time;
+            ds_u64 timeout = m_config.cache_seconds * 1000;  // Convert to milliseconds
 
             if (time_since_last_use > timeout)
             {
                 // Resource has timed out, schedule for unloading
                 Schedule_Resource_Unload(&entry);
 
-                DESTAN_LOG_TRACE("Streaming Allocator '{0}': Resource {1} timed out after {2} seconds of inactivity",
+                DS_LOG_TRACE("Streaming Allocator '{0}': Resource {1} timed out after {2} seconds of inactivity",
                     m_name, entry.info.id, time_since_last_use / 1000);
             }
         }
@@ -1200,7 +1200,7 @@ namespace destan::core::memory
         }
 
         // Look for resources that need loading
-        for (destan_u64 i = 0; i < m_resource_count; i++)
+        for (ds_u64 i = 0; i < m_resource_count; i++)
         {
             Resource_Entry& entry = m_resources[i];
 
@@ -1267,10 +1267,10 @@ namespace destan::core::memory
         if (m_pending_operations.size() > m_config.max_concurrent_operations * 4)
         {
             // Keep only the highest priority operations
-            destan_u64 operations_to_keep = m_config.max_concurrent_operations * 4;
+            ds_u64 operations_to_keep = m_config.max_concurrent_operations * 4;
             m_pending_operations.resize(operations_to_keep);
 
-            DESTAN_LOG_TRACE("Streaming Allocator '{0}': Trimmed pending operations to {1}",
+            DS_LOG_TRACE("Streaming Allocator '{0}': Trimmed pending operations to {1}",
                 m_name, operations_to_keep);
         }
     }

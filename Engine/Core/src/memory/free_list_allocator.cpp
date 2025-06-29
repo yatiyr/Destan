@@ -1,23 +1,23 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/free_list_allocator.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
     // Initialize static member
-    std::atomic<destan_u64> Free_List_Allocator::s_next_allocation_id{ 1 };
+    std::atomic<ds_u64> Free_List_Allocator::s_next_allocation_id{ 1 };
 #endif
 
-    Free_List_Allocator::Free_List_Allocator(destan_u64 size_bytes,
+    Free_List_Allocator::Free_List_Allocator(ds_u64 size_bytes,
         Allocation_Strategy strategy,
-        const destan_char* name)
+        const ds_char* name)
         : m_strategy(strategy)
         , m_size(size_bytes)
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -28,8 +28,8 @@ namespace destan::core::memory
         else
         {
             // Default name if none provided
-            const destan_char* default_name = "Free_List";
-            destan_u64 i = 0;
+            const ds_char* default_name = "Free_List";
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -41,7 +41,7 @@ namespace destan::core::memory
         // Ensure size is at least large enough for one block
         if (size_bytes < sizeof(Block_Header) + MIN_BLOCK_SIZE)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': size too small ({1} bytes), minimum is {2} bytes",
+            DS_LOG_ERROR("Free List Allocator '{0}': size too small ({1} bytes), minimum is {2} bytes",
                 m_name, size_bytes, sizeof(Block_Header) + MIN_BLOCK_SIZE);
 
             // Adjust size to minimum
@@ -50,7 +50,7 @@ namespace destan::core::memory
 
         // Allocate memory region (align to cache line for better performance)
         m_memory_region = Memory::Malloc(m_size, CACHE_LINE_SIZE);
-        DESTAN_ASSERT(m_memory_region, "Failed to allocate memory for Free List Allocator");
+        DS_ASSERT(m_memory_region, "Failed to allocate memory for Free List Allocator");
 
         // Initialize the first block to cover the entire region
         m_first_block = static_cast<Block_Header*>(m_memory_region);
@@ -65,7 +65,7 @@ namespace destan::core::memory
         m_free_list = m_first_block;
         m_free_block_count = 1;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Initialize debug values
         m_first_block->allocation_id = 0; // Not allocated yet
         m_first_block->file = nullptr;
@@ -74,11 +74,11 @@ namespace destan::core::memory
         m_allocation_count = 0;
 
         // Fill memory with pattern to help identify uninitialized memory
-        destan_u64 user_size = m_size - sizeof(Block_Header);
-        Memory::Memset(reinterpret_cast<destan_u8*>(m_memory_region) + sizeof(Block_Header),
+        ds_u64 user_size = m_size - sizeof(Block_Header);
+        Memory::Memset(reinterpret_cast<ds_u8*>(m_memory_region) + sizeof(Block_Header),
             0xCD, user_size); // 0xCD = "Clean Dynamic memory"
 
-        DESTAN_LOG_INFO("Free List Allocator '{0}' created with {1} bytes", m_name, m_size);
+        DS_LOG_INFO("Free List Allocator '{0}' created with {1} bytes", m_name, m_size);
 #endif
     }
 
@@ -87,11 +87,11 @@ namespace destan::core::memory
         // Free the entire memory region
         if (m_memory_region)
         {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Check for memory leaks before freeing
             if (m_allocation_count > 0)
             {
-                DESTAN_LOG_WARN("Free List Allocator '{0}' destroyed with {1} active allocations ({2} bytes)",
+                DS_LOG_WARN("Free List Allocator '{0}' destroyed with {1} active allocations ({2} bytes)",
                     m_name, m_allocation_count, Get_Used_Size());
 
                 // List all active allocations
@@ -100,9 +100,9 @@ namespace destan::core::memory
                 {
                     if (!current->is_free)
                     {
-                        DESTAN_LOG_WARN("  Leaked allocation: {0} bytes at {1} ({2}:{3})",
+                        DS_LOG_WARN("  Leaked allocation: {0} bytes at {1} ({2}:{3})",
                             current->size - sizeof(Block_Header),
-                            static_cast<void*>(reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header)),
+                            static_cast<void*>(reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header)),
                             current->file ? current->file : "unknown",
                             current->line);
                     }
@@ -144,7 +144,7 @@ namespace destan::core::memory
         other.m_size = 0;
         other.m_free_block_count = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Move allocation count
         m_allocation_count = other.m_allocation_count;
         other.m_allocation_count = 0;
@@ -181,7 +181,7 @@ namespace destan::core::memory
             other.m_size = 0;
             other.m_free_block_count = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Move allocation count
             m_allocation_count = other.m_allocation_count;
             other.m_allocation_count = 0;
@@ -190,12 +190,12 @@ namespace destan::core::memory
         return *this;
     }
 
-    void* Free_List_Allocator::Allocate(destan_u64 size, destan_u64 alignment)
+    void* Free_List_Allocator::Allocate(ds_u64 size, ds_u64 alignment)
     {
         // Handle zero-size allocation
         if (size == 0)
         {
-            DESTAN_LOG_WARN("Free List Allocator '{0}': Attempted to allocate 0 bytes", m_name);
+            DS_LOG_WARN("Free List Allocator '{0}': Attempted to allocate 0 bytes", m_name);
             return nullptr;
         }
 
@@ -212,7 +212,7 @@ namespace destan::core::memory
         }
 
         // Verify alignment is a power of 2
-        DESTAN_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
+        DS_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
 
         // Thread safety
         Lock();
@@ -222,22 +222,22 @@ namespace destan::core::memory
         if (!block)
         {
             // No suitable block found
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Failed to allocate {1} bytes (alignment {2})",
+            DS_LOG_ERROR("Free List Allocator '{0}': Failed to allocate {1} bytes (alignment {2})",
                 m_name, size, alignment);
             Unlock();
             return nullptr;
         }
 
         // Calculate required padding for alignment
-        destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
+        ds_u8* aligned_address = reinterpret_cast<ds_u8*>(
             Memory::Align_Address(
-                reinterpret_cast<destan_u8*>(block) + sizeof(Block_Header),
+                reinterpret_cast<ds_u8*>(block) + sizeof(Block_Header),
                 alignment
             )
             );
 
-        destan_u64 padding = aligned_address - (reinterpret_cast<destan_u8*>(block) + sizeof(Block_Header));
-        destan_u64 required_size = size + padding;
+        ds_u64 padding = aligned_address - (reinterpret_cast<ds_u8*>(block) + sizeof(Block_Header));
+        ds_u64 required_size = size + padding;
 
         // If there's enough space, split the block
         if (block->size - sizeof(Block_Header) >= required_size + MIN_BLOCK_SIZE + sizeof(Block_Header))
@@ -268,7 +268,7 @@ namespace destan::core::memory
         // Update last allocated for FIND_NEXT strategy
         m_last_allocated = block;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Update debug information
         block->allocation_id = s_next_allocation_id.fetch_add(1, std::memory_order_relaxed);
         m_allocation_count++;
@@ -294,17 +294,17 @@ namespace destan::core::memory
         Block_Header* block = Get_Block_Header(ptr);
         if (!block || block->is_free)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Invalid pointer for deallocation: {1}",
+            DS_LOG_ERROR("Free List Allocator '{0}': Invalid pointer for deallocation: {1}",
                 m_name, ptr);
             Unlock();
             return false;
         }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Validate block before deallocation
         if (!Validate_Block(block))
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Memory corruption detected at {1}",
+            DS_LOG_ERROR("Free List Allocator '{0}': Memory corruption detected at {1}",
                 m_name, ptr);
             Unlock();
             return false;
@@ -314,12 +314,12 @@ namespace destan::core::memory
         m_allocation_count--;
 
         // Calculate the user memory region based on the actual user pointer
-        destan_u8* block_start = reinterpret_cast<destan_u8*>(block);
-        destan_u8* block_end = block_start + block->size;
-        destan_u8* user_ptr = static_cast<destan_u8*>(ptr);
+        ds_u8* block_start = reinterpret_cast<ds_u8*>(block);
+        ds_u8* block_end = block_start + block->size;
+        ds_u8* user_ptr = static_cast<ds_u8*>(ptr);
 
         // Calculate size from the user pointer to the end of the block
-        destan_u64 user_size = static_cast<destan_u64>(block_end - user_ptr);
+        ds_u64 user_size = static_cast<ds_u64>(block_end - user_ptr);
 
         // Fill only the user area with pattern
         Memory::Memset(ptr, 0xDD, user_size); // 0xDD = "Dead Dynamic memory"
@@ -362,26 +362,26 @@ namespace destan::core::memory
         m_free_block_count = 1;
         m_last_allocated = nullptr;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Reset debug counters
         m_allocation_count = 0;
 
         // Fill memory with pattern to help identify uninitialized memory
-        destan_u64 user_size = m_size - sizeof(Block_Header);
-        Memory::Memset(reinterpret_cast<destan_u8*>(m_memory_region) + sizeof(Block_Header),
+        ds_u64 user_size = m_size - sizeof(Block_Header);
+        Memory::Memset(reinterpret_cast<ds_u8*>(m_memory_region) + sizeof(Block_Header),
             0xCD, user_size); // 0xCD = "Clean Dynamic memory"
 
-        DESTAN_LOG_INFO("Free List Allocator '{0}' reset", m_name);
+        DS_LOG_INFO("Free List Allocator '{0}' reset", m_name);
 #endif
 
         Unlock();
     }
 
-    destan_u64 Free_List_Allocator::Defragment()
+    ds_u64 Free_List_Allocator::Defragment()
     {
         Lock();
 
-        destan_u64 coalesced_count = 0;
+        ds_u64 coalesced_count = 0;
         Block_Header* current = m_first_block;
 
         // Simply coalesce all adjacent free blocks
@@ -415,7 +415,7 @@ namespace destan::core::memory
 
         if (coalesced_count > 0)
         {
-            DESTAN_LOG_INFO("Free List Allocator '{0}': Defragmented {1} blocks",
+            DS_LOG_INFO("Free List Allocator '{0}': Defragmented {1} blocks",
                 m_name, coalesced_count);
         }
 
@@ -423,11 +423,11 @@ namespace destan::core::memory
         return coalesced_count;
     }
 
-    destan_u64 Free_List_Allocator::Get_Used_Size()
+    ds_u64 Free_List_Allocator::Get_Used_Size()
     {
         Lock();
 
-        destan_u64 used_size = 0;
+        ds_u64 used_size = 0;
         Block_Header* current = m_first_block;
 
         while (current)
@@ -443,16 +443,16 @@ namespace destan::core::memory
         return used_size;
     }
 
-    destan_u64 Free_List_Allocator::Get_Free_Size()
+    ds_u64 Free_List_Allocator::Get_Free_Size()
     {
         return m_size - Get_Used_Size();
     }
 
-    destan_u64 Free_List_Allocator::Get_Largest_Free_Block_Size()
+    ds_u64 Free_List_Allocator::Get_Largest_Free_Block_Size()
     {
         Lock();
 
-        destan_u64 largest_size = 0;
+        ds_u64 largest_size = 0;
         Block_Header* current = m_free_list;
 
         while (current)
@@ -470,7 +470,7 @@ namespace destan::core::memory
     }
 
     // Private helper methods
-    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Suitable_Block(destan_u64 size, destan_u64 alignment)
+    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Suitable_Block(ds_u64 size, ds_u64 alignment)
     {
         // Use the appropriate strategy
         switch (m_strategy)
@@ -485,7 +485,7 @@ namespace destan::core::memory
             return Find_Next_Fit(size, alignment);
 
         default:
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Unknown allocation strategy", m_name);
+            DS_LOG_ERROR("Free List Allocator '{0}': Unknown allocation strategy", m_name);
             return Find_First_Fit(size, alignment);
         }
     }
@@ -493,20 +493,20 @@ namespace destan::core::memory
     //--------------------------------------------------------------------
     // Block Finding Strategies
     //--------------------------------------------------------------------
-    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_First_Fit(destan_u64 size, destan_u64 alignment)
+    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_First_Fit(ds_u64 size, ds_u64 alignment)
     {
         Block_Header* current = m_free_list;
 
         while (current)
         {
             // Calculate the actual aligned address for this specific block
-            destan_u8* block_start = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
-            destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
+            ds_u8* block_start = reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header);
+            ds_u8* aligned_address = reinterpret_cast<ds_u8*>(
                 Memory::Align_Address(block_start, alignment)
                 );
 
             // Calculate the actual adjustment needed for this block
-            destan_u64 adjustment = aligned_address - block_start;
+            ds_u64 adjustment = aligned_address - block_start;
 
             // Check if this block is large enough with its actual alignment needs
             if (current->size >= sizeof(Block_Header) + adjustment + size)
@@ -520,22 +520,22 @@ namespace destan::core::memory
         return nullptr; // No suitable block found
     }
 
-    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Best_Fit(destan_u64 size, destan_u64 alignment)
+    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Best_Fit(ds_u64 size, ds_u64 alignment)
     {
         Block_Header* current = m_free_list;
         Block_Header* best_fit = nullptr;
-        destan_u64 best_size = std::numeric_limits<destan_u64>::max();
+        ds_u64 best_size = std::numeric_limits<ds_u64>::max();
 
         while (current)
         {
             // Calculate aligned address
-            destan_u8* block_start = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
-            destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
+            ds_u8* block_start = reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header);
+            ds_u8* aligned_address = reinterpret_cast<ds_u8*>(
                 Memory::Align_Address(block_start, alignment)
                 );
 
             // Calculate adjustment needed for alignment
-            destan_u64 adjustment = aligned_address - block_start;
+            ds_u64 adjustment = aligned_address - block_start;
 
             // Check if block is large enough including alignment adjustment
             if (current->size >= sizeof(Block_Header) + adjustment + size)
@@ -560,7 +560,7 @@ namespace destan::core::memory
         return best_fit;
     }
 
-    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Next_Fit(destan_u64 size, destan_u64 alignment)
+    Free_List_Allocator::Block_Header* Free_List_Allocator::Find_Next_Fit(ds_u64 size, ds_u64 alignment)
     {
         // If we don't have a last allocated block or it's at the end, start from the beginning
         if (!m_last_allocated || !m_last_allocated->next)
@@ -578,13 +578,13 @@ namespace destan::core::memory
             if (current->is_free)
             {
                 // Calculate aligned address
-                destan_u8* block_start = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
-                destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
+                ds_u8* block_start = reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header);
+                ds_u8* aligned_address = reinterpret_cast<ds_u8*>(
                     Memory::Align_Address(block_start, alignment)
                     );
 
                 // Calculate adjustment needed for alignment
-                destan_u64 adjustment = aligned_address - block_start;
+                ds_u64 adjustment = aligned_address - block_start;
 
                 // Check if block is large enough including alignment adjustment
                 if (current->size >= sizeof(Block_Header) + adjustment + size)
@@ -603,13 +603,13 @@ namespace destan::core::memory
             if (current->is_free)
             {
                 // Calculate aligned address
-                destan_u8* block_start = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
-                destan_u8* aligned_address = reinterpret_cast<destan_u8*>(
+                ds_u8* block_start = reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header);
+                ds_u8* aligned_address = reinterpret_cast<ds_u8*>(
                     Memory::Align_Address(block_start, alignment)
                     );
 
                 // Calculate adjustment needed for alignment
-                destan_u64 adjustment = aligned_address - block_start;
+                ds_u64 adjustment = aligned_address - block_start;
 
                 // Check if block is large enough including alignment adjustment
                 if (current->size >= sizeof(Block_Header) + adjustment + size)
@@ -628,7 +628,7 @@ namespace destan::core::memory
     // Block Management
     //--------------------------------------------------------------------
 
-    Free_List_Allocator::Block_Header* Free_List_Allocator::Split_Block(Block_Header* block, destan_u64 size)
+    Free_List_Allocator::Block_Header* Free_List_Allocator::Split_Block(Block_Header* block, ds_u64 size)
     {
         // Check if we can actually split the block
         if (block->size < size + sizeof(Block_Header) + MIN_BLOCK_SIZE)
@@ -637,12 +637,12 @@ namespace destan::core::memory
         }
 
         // Calculate the position of the new block
-        destan_u8* block_start = reinterpret_cast<destan_u8*>(block);
-        destan_u8* new_block_start = block_start + size;
+        ds_u8* block_start = reinterpret_cast<ds_u8*>(block);
+        ds_u8* new_block_start = block_start + size;
         Block_Header* new_block = reinterpret_cast<Block_Header*>(new_block_start);
 
         // Calculate the size of the new block
-        destan_u64 new_block_size = block->size - size;
+        ds_u64 new_block_size = block->size - size;
 
         // Initialize the new block
         new_block->size = new_block_size;
@@ -662,7 +662,7 @@ namespace destan::core::memory
         // Update the size of the original block
         block->size = size;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Initialize debug values for the new block
         new_block->allocation_id = 0; // Not allocated yet
         new_block->file = nullptr;
@@ -670,7 +670,7 @@ namespace destan::core::memory
         new_block->guard_value = Block_Header::GUARD_PATTERN;
 
         // Fill the new block's memory with pattern
-        destan_u64 user_size = new_block_size - sizeof(Block_Header);
+        ds_u64 user_size = new_block_size - sizeof(Block_Header);
         Memory::Memset(new_block_start + sizeof(Block_Header), 0xCD, user_size); // 0xCD = "Clean Dynamic memory"
 #endif
 
@@ -762,8 +762,8 @@ namespace destan::core::memory
             // Add the coalesced block back to free list
             Add_To_Free_List(block);
 
-#ifdef DESTAN_DEBUG
-            DESTAN_LOG_TRACE("Free List Allocator '{0}': Coalesced block with next block", m_name);
+#ifdef DS_DEBUG
+            DS_LOG_TRACE("Free List Allocator '{0}': Coalesced block with next block", m_name);
 #endif
         }
 
@@ -791,8 +791,8 @@ namespace destan::core::memory
             // Update our return value to the previous block
             block = prev_block;
 
-#ifdef DESTAN_DEBUG
-            DESTAN_LOG_TRACE("Free List Allocator '{0}': Coalesced block with previous block", m_name);
+#ifdef DS_DEBUG
+            DS_LOG_TRACE("Free List Allocator '{0}': Coalesced block with previous block", m_name);
 #endif
         }
 
@@ -811,9 +811,9 @@ namespace destan::core::memory
         }
 
         // Check if the pointer is within our memory region
-        destan_u8* memory_start = static_cast<destan_u8*>(m_memory_region);
-        destan_u8* memory_end = memory_start + m_size;
-        destan_u8* user_ptr = static_cast<destan_u8*>(ptr);
+        ds_u8* memory_start = static_cast<ds_u8*>(m_memory_region);
+        ds_u8* memory_end = memory_start + m_size;
+        ds_u8* user_ptr = static_cast<ds_u8*>(ptr);
 
         if (user_ptr < memory_start || user_ptr >= memory_end)
         {
@@ -840,15 +840,15 @@ namespace destan::core::memory
         }
 
         // Cast to byte pointer for pointer arithmetic
-        destan_u8* user_ptr = static_cast<destan_u8*>(ptr);
+        ds_u8* user_ptr = static_cast<ds_u8*>(ptr);
 
         // Scan all blocks to find the one containing this pointer
         Block_Header* current = m_first_block;
         while (current)
         {
             // Calculate block bounds
-            destan_u8* block_start = reinterpret_cast<destan_u8*>(current);
-            destan_u8* block_end = block_start + current->size;
+            ds_u8* block_start = reinterpret_cast<ds_u8*>(current);
+            ds_u8* block_end = block_start + current->size;
 
             // Check if the pointer is within this block
             if (user_ptr >= block_start + sizeof(Block_Header) && user_ptr < block_end)
@@ -862,7 +862,7 @@ namespace destan::core::memory
         return nullptr;
     }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
     //--------------------------------------------------------------------
     // Debug Helpers
     //--------------------------------------------------------------------
@@ -877,58 +877,58 @@ namespace destan::core::memory
         // Check guard pattern
         if (block->guard_value != Block_Header::GUARD_PATTERN)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Memory corruption detected in block header", m_name);
+            DS_LOG_ERROR("Free List Allocator '{0}': Memory corruption detected in block header", m_name);
             return false;
         }
 
         // Check if block is within our memory region
-        destan_u8* memory_start = static_cast<destan_u8*>(m_memory_region);
-        destan_u8* memory_end = memory_start + m_size;
-        destan_u8* block_start = reinterpret_cast<destan_u8*>(block);
-        destan_u8* block_end = block_start + block->size;
+        ds_u8* memory_start = static_cast<ds_u8*>(m_memory_region);
+        ds_u8* memory_end = memory_start + m_size;
+        ds_u8* block_start = reinterpret_cast<ds_u8*>(block);
+        ds_u8* block_end = block_start + block->size;
 
         if (block_start < memory_start || block_end > memory_end)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Block is outside memory region", m_name);
+            DS_LOG_ERROR("Free List Allocator '{0}': Block is outside memory region", m_name);
             return false;
         }
 
         // Validate block size
         if (block->size < sizeof(Block_Header) || block->size > m_size)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Invalid block size: {1}", m_name, block->size);
+            DS_LOG_ERROR("Free List Allocator '{0}': Invalid block size: {1}", m_name, block->size);
             return false;
         }
 
         // Validate block links
         if (block->next)
         {
-            destan_u8* next_block_start = reinterpret_cast<destan_u8*>(block->next);
+            ds_u8* next_block_start = reinterpret_cast<ds_u8*>(block->next);
 
             // Next block should be after this block
             if (next_block_start != block_start + block->size)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
                 return false;
             }
 
             // Next block should have correct prev pointer
             if (block->next->prev != block)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
                 return false;
             }
         }
 
         if (block->prev)
         {
-            destan_u8* prev_block_start = reinterpret_cast<destan_u8*>(block->prev);
-            destan_u8* prev_block_end = prev_block_start + block->prev->size;
+            ds_u8* prev_block_start = reinterpret_cast<ds_u8*>(block->prev);
+            ds_u8* prev_block_end = prev_block_start + block->prev->size;
 
             // This block should be after prev block
             if (block_start != prev_block_end)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Block links are corrupted", m_name);
                 return false;
             }
         }
@@ -939,7 +939,7 @@ namespace destan::core::memory
     bool Free_List_Allocator::Validate_Free_List() const
     {
         Block_Header* current = m_free_list;
-        destan_u64 count = 0;
+        ds_u64 count = 0;
 
         // Check forward links
         while (current)
@@ -947,7 +947,7 @@ namespace destan::core::memory
             // Each block in the free list should be marked as free
             if (!current->is_free)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Block in free list is not marked as free", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Block in free list is not marked as free", m_name);
                 return false;
             }
 
@@ -960,7 +960,7 @@ namespace destan::core::memory
             // Check next_free link
             if (current->next_free && current->next_free->prev_free != current)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Free list links are corrupted", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Free list links are corrupted", m_name);
                 return false;
             }
 
@@ -970,7 +970,7 @@ namespace destan::core::memory
             // Detect cycles
             if (count > m_free_block_count)
             {
-                DESTAN_LOG_ERROR("Free List Allocator '{0}': Cycle detected in free list", m_name);
+                DS_LOG_ERROR("Free List Allocator '{0}': Cycle detected in free list", m_name);
                 return false;
             }
         }
@@ -978,7 +978,7 @@ namespace destan::core::memory
         // Check if counted blocks match tracked count
         if (count != m_free_block_count)
         {
-            DESTAN_LOG_ERROR("Free List Allocator '{0}': Free block count mismatch: counted {1}, tracked {2}",
+            DS_LOG_ERROR("Free List Allocator '{0}': Free block count mismatch: counted {1}, tracked {2}",
                 m_name, count, m_free_block_count);
             return false;
         }
@@ -986,7 +986,7 @@ namespace destan::core::memory
         return true;
     }
 
-    void* Free_List_Allocator::Allocate_Debug(destan_u64 size, destan_u64 alignment, const destan_char* file, int line)
+    void* Free_List_Allocator::Allocate_Debug(ds_u64 size, ds_u64 alignment, const ds_char* file, int line)
     {
         void* ptr = Allocate(size, alignment);
 
@@ -1044,16 +1044,16 @@ namespace destan::core::memory
             ss << "   Size   |    Address    | Source Location" << std::endl;
             ss << "--------------------------------------------------" << std::endl;
 
-            const destan_u64 MAX_ALLOCS_TO_SHOW = 20; // Limit for readability
-            destan_u64 allocs_shown = 0;
+            const ds_u64 MAX_ALLOCS_TO_SHOW = 20; // Limit for readability
+            ds_u64 allocs_shown = 0;
 
             Block_Header* current = m_first_block;
             while (current && allocs_shown < MAX_ALLOCS_TO_SHOW)
             {
                 if (!current->is_free)
                 {
-                    destan_u8* user_ptr = reinterpret_cast<destan_u8*>(current) + sizeof(Block_Header);
-                    destan_u64 user_size = current->size - sizeof(Block_Header);
+                    ds_u8* user_ptr = reinterpret_cast<ds_u8*>(current) + sizeof(Block_Header);
+                    ds_u64 user_size = current->size - sizeof(Block_Header);
 
                     ss << "  " << std::setw(7) << user_size << " | "
                         << std::hex << std::setw(12) << static_cast<void*>(user_ptr) << std::dec << " | ";
@@ -1082,7 +1082,7 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
 
         Unlock();
     }
@@ -1097,14 +1097,14 @@ namespace destan::core::memory
 
         // Create a visual representation of memory fragmentation
         const int MAP_WIDTH = 80; // Width of the visual map
-        const destan_u64 BYTES_PER_CHAR = m_size / MAP_WIDTH;
+        const ds_u64 BYTES_PER_CHAR = m_size / MAP_WIDTH;
 
-        destan_u8* memory_start = static_cast<destan_u8*>(m_memory_region);
+        ds_u8* memory_start = static_cast<ds_u8*>(m_memory_region);
 
         for (int i = 0; i < MAP_WIDTH; i++)
         {
-            destan_u64 pos = i * BYTES_PER_CHAR;
-            destan_u8* current_pos = memory_start + pos;
+            ds_u64 pos = i * BYTES_PER_CHAR;
+            ds_u8* current_pos = memory_start + pos;
 
             // Find the block containing this position
             Block_Header* current = m_first_block;
@@ -1112,8 +1112,8 @@ namespace destan::core::memory
 
             while (current && !found)
             {
-                destan_u8* block_start = reinterpret_cast<destan_u8*>(current);
-                destan_u8* block_end = block_start + current->size;
+                ds_u8* block_start = reinterpret_cast<ds_u8*>(current);
+                ds_u8* block_end = block_start + current->size;
 
                 if (current_pos >= block_start && current_pos < block_end)
                 {
@@ -1135,7 +1135,7 @@ namespace destan::core::memory
         ss << "]" << std::endl;
         ss << "Legend: # = Allocated, . = Free" << std::endl;
 
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
 
         Unlock();
     }

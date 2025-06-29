@@ -1,9 +1,9 @@
 -- require "cmake"
-include "DestanDeps.lua"
+include "DsDeps.lua"
 
-workspace "Destan"
+workspace "Ds"
     architecture "x64"
-    startproject "DestanSandbox"
+    startproject "DsSandbox"
 
     configurations
     {
@@ -24,13 +24,13 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 -- Global Defines based on configuration
 filter "configurations:Debug"
-    defines { "DESTAN_DEBUG" }
+    defines { "DS_DEBUG" }
     runtime "Debug"
     symbols "On"
     optimize "Off"
 
 filter "configurations:StrictDebug"
-    defines { "DESTAN_DEBUG", "DESTAN_STRICT_DEBUG" }
+    defines { "DS_DEBUG", "DS_STRICT_DEBUG" }
     runtime "Debug"
     symbols "On"
     optimize "Off"
@@ -38,13 +38,13 @@ filter "configurations:StrictDebug"
     fatalwarnings { "All"}
 
 filter "configurations:Release"
-    defines { "DESTAN_RELEASE" }
+    defines { "DS_RELEASE" }
     runtime "Release"
     optimize "On"
     optimize "On"
 
 filter "configurations:Shipping"
-    defines { "DESTAN_SHIPPING"}
+    defines { "DS_SHIPPING"}
     runtime "Release"
     symbols "Off"
     optimize "Full"

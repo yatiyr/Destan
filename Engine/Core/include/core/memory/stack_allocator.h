@@ -2,7 +2,7 @@
 #include <core/memory/memory.h>
 #include <core/defines.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
 	/**
 	 * Stack Allocator (LIFO Allocator)
@@ -25,7 +25,7 @@ namespace destan::core::memory
 	     * Marker represents a position in the stack
 		 * Used for rolling back to previous positions
 		 */
-		using Marker = destan_u64;
+		using Marker = ds_u64;
 
 		/**
 		 * Creates a stack allocator with the specified size
@@ -33,7 +33,7 @@ namespace destan::core::memory
 		 * @param size_bytes Total size of the memory stack in bytes
 		 * @param name Optional name for debugging purposes
 		 */
-		Stack_Allocator(destan_u64 size_bytes, const char* name = "Stack");
+		Stack_Allocator(ds_u64 size_bytes, const char* name = "Stack");
 
 		/**
 		 * Destructor - releases the entire memory stack
@@ -55,7 +55,7 @@ namespace destan::core::memory
 		 * @param alignment Memory alignment (defaults to DEFAULT_ALIGNMENT)
 		 * @return Pointer to allocated memory, or nullptr if out of memory
 		 */
-		void* Allocate(destan_u64 size, destan_u64 alignment = DEFAULT_ALIGNMENT);
+		void* Allocate(ds_u64 size, ds_u64 alignment = DEFAULT_ALIGNMENT);
 
 
 		/**
@@ -85,9 +85,9 @@ namespace destan::core::memory
 		 * @return Pointer to the first object, or nullptr if out of memory
 		 */
 		template<typename T>
-		T* Create_Array(destan_u64 count) {
+		T* Create_Array(ds_u64 count) {
 			// Calculate total size with alignment considerations
-			destan_u64 total_size = sizeof(T) * count;
+			ds_u64 total_size = sizeof(T) * count;
 			void* memory = Allocate(total_size, alignof(T));
 			if (!memory)
 			{
@@ -96,7 +96,7 @@ namespace destan::core::memory
 
 			// Construct each object
 			T* array = static_cast<T*>(memory);
-			for (destan_u64 i = 0; i < count; ++i)
+			for (ds_u64 i = 0; i < count; ++i)
 			{
 				new(&array[i]) T();
 			}
@@ -117,7 +117,7 @@ namespace destan::core::memory
 		 * @param marker A previous marker to roll back to
 		 * @param destruct_objects If true, calls destructors on all freed objects (debug only)
 		 */
-		void Free_To_Marker(Marker marker, destan_bool destruct_objects = false);
+		void Free_To_Marker(Marker marker, ds_bool destruct_objects = false);
 
 		/**
 		 * Explicitly frees the most recent allocation
@@ -133,43 +133,43 @@ namespace destan::core::memory
 		 *
 		 * @param destruct_objects If true, calls destructors on all allocated objects (debug only)
 		 */
-		void Reset(destan_bool destruct_objects = false);
+		void Reset(ds_bool destruct_objects = false);
 
 
 		/**
 		 * Returns the total size of the stack in bytes
 		 */
-		destan_u64 Get_Size() const { return m_size; }
+		ds_u64 Get_Size() const { return m_size; }
 
 
 		/**
 		 * Returns the current used size in bytes
 		 */
-		destan_u64 Get_Used_Size() const { return m_current_pos - m_start_pos; }
+		ds_u64 Get_Used_Size() const { return m_current_pos - m_start_pos; }
 
 		/**
 		 * Returns the remaining free size in bytes
 		 */
-		destan_u64 Get_Free_Size() const { return m_size - Get_Used_Size(); }
+		ds_u64 Get_Free_Size() const { return m_size - Get_Used_Size(); }
 
 		/**
 		 * Returns the memory utilization percentage (0-100)
 		 */
-		destan_f32 Get_Utilization() const
+		ds_f32 Get_Utilization() const
 		{
-			return (static_cast<destan_f32>(Get_Used_Size()) / static_cast<destan_f32>(m_size)) * 100.0f;
+			return (static_cast<ds_f32>(Get_Used_Size()) / static_cast<ds_f32>(m_size)) * 100.0f;
 		}
 
 		/**
 		 * Returns the name of this allocator
 		 */
-		const destan_char* Get_Name() const { return m_name; }
+		const ds_char* Get_Name() const { return m_name; }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		/**
 		 * Debug version of Allocate that tracks the allocation
 		 */
-		void* Allocate_Debug(destan_u64 size, destan_u64 alignment, const destan_char* file, int line);
+		void* Allocate_Debug(ds_u64 size, ds_u64 alignment, const ds_char* file, int line);
 
 		/**
 		 * Dumps the current state of the stack for debugging
@@ -179,32 +179,32 @@ namespace destan::core::memory
 
 	private:
 		// Helper methods to enforce alignment rules
-		destan_u64 Align_Address(destan_u64 address, destan_u64 alignment) const;
+		ds_u64 Align_Address(ds_u64 address, ds_u64 alignment) const;
 
 		// Memory block management
 		void* m_memory_block = nullptr;  // Start of the memory block
-		destan_u64 m_start_pos = 0;     // Start position (as an offset)
-		destan_u64 m_current_pos = 0;   // Current allocation position (as an offset)
-		destan_u64 m_end_pos = 0;       // End of the memory block (as an offset)
-		destan_u64 m_size = 0;          // Total size in bytes
+		ds_u64 m_start_pos = 0;     // Start position (as an offset)
+		ds_u64 m_current_pos = 0;   // Current allocation position (as an offset)
+		ds_u64 m_end_pos = 0;       // End of the memory block (as an offset)
+		ds_u64 m_size = 0;          // Total size in bytes
 
 		// Fixed-size buffer for name
-		static constexpr destan_u64 MAX_NAME_LENGTH = 64;
-		destan_char m_name[MAX_NAME_LENGTH];
+		static constexpr ds_u64 MAX_NAME_LENGTH = 64;
+		ds_char m_name[MAX_NAME_LENGTH];
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// Debug tracking for allocations
 		struct Allocation_Info {
-			destan_u64 pos;         // Position in the stack
-			destan_u64 size;        // Size of allocation
-			destan_u64 alignment;   // Alignment of allocation
-			const destan_char* file;       // Source file
+			ds_u64 pos;         // Position in the stack
+			ds_u64 size;        // Size of allocation
+			ds_u64 alignment;   // Alignment of allocation
+			const ds_char* file;       // Source file
 			int line;               // Source line
 		};
 
 		// Track allocations in debug mode
-		static constexpr destan_u64 MAX_DEBUG_ALLOCATIONS = 1024;
-		destan_u64 m_debug_allocation_count = 0;
+		static constexpr ds_u64 MAX_DEBUG_ALLOCATIONS = 1024;
+		ds_u64 m_debug_allocation_count = 0;
 		Allocation_Info* m_debug_allocations = nullptr;
 
 		// For thread safety
@@ -217,18 +217,18 @@ namespace destan::core::memory
 	};
 
 	// Helper macros for stack allocator
-#ifdef DESTAN_DEBUG
-#define DESTAN_STACK_ALLOC(stack, size, alignment) \
+#ifdef DS_DEBUG
+#define DS_STACK_ALLOC(stack, size, alignment) \
         (stack)->Allocate_Debug((size), (alignment), __FILE__, __LINE__)
 #else
-#define DESTAN_STACK_ALLOC(stack, size, alignment) \
+#define DS_STACK_ALLOC(stack, size, alignment) \
         (stack)->Allocate((size), (alignment))
 #endif
 
-#define DESTAN_STACK_CREATE(stack, type, ...) \
+#define DS_STACK_CREATE(stack, type, ...) \
     (stack)->Create<type>(__VA_ARGS__)
 
-#define DESTAN_STACK_CREATE_ARRAY(stack, type, count) \
+#define DS_STACK_CREATE_ARRAY(stack, type, count) \
     (stack)->Create_Array<type>(count)
 
 // Helper class for automatic scope-based memory management
@@ -248,10 +248,10 @@ namespace destan::core::memory
 	};
 
 // Convenience macro for creating stack scopes
-#define DESTAN_STACK_SCOPE(stack) \
-    destan::core::memory::Stack_Scope DESTAN_CONCAT(stack_scope_, __LINE__)(stack)
+#define DS_STACK_SCOPE(stack) \
+    ds::core::memory::Stack_Scope DS_CONCAT(stack_scope_, __LINE__)(stack)
 
 // Helper for the above macro
-#define DESTAN_CONCAT(a, b) DESTAN_CONCAT_IMPL(a, b)
-#define DESTAN_CONCAT_IMPL(a, b) a##b
-} //namespace::destan::core::memory
+#define DS_CONCAT(a, b) DS_CONCAT_IMPL(a, b)
+#define DS_CONCAT_IMPL(a, b) a##b
+} //namespace::ds::core::memory

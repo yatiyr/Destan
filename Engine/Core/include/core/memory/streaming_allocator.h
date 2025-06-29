@@ -2,7 +2,7 @@
 #include <core/memory/page_allocator.h>
 #include <core/defines.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
     /**
      * Resource priority levels
@@ -39,14 +39,14 @@ namespace destan::core::memory
      * @param user_data User-provided data passed to the loading request
      */
     using Resource_Loaded_Callback =
-        void (*)(destan_u64 resource_id, void* data, destan_u64 size, void* user_data);
+        void (*)(ds_u64 resource_id, void* data, ds_u64 size, void* user_data);
 
     /**
      * Resource handle for referring to managed resources
      */
     struct Resource_Handle
     {
-        destan_u64 id = 0;            // Unique identifier for the resource
+        ds_u64 id = 0;            // Unique identifier for the resource
         Resource_State state = Resource_State::UNLOADED;  // Current state
 
         bool IsValid() const { return id != 0; }
@@ -98,20 +98,20 @@ namespace destan::core::memory
          */
         struct Config
         {
-            destan_u64 total_memory_budget = 256 * 1024 * 1024;  // Total memory budget (default: 256MB)
-            destan_u64 page_size = 64 * 1024;                    // Page size (default: 64KB)
-            destan_u32 max_concurrent_operations = 4;            // Maximum number of concurrent I/O operations
-            destan_u32 cache_seconds = 60 * 60;                  // How long to keep unused resources (in seconds)
-            destan_bool enable_predictive_loading = true;        // Whether to use predictive loading
-            destan_bool log_detailed_stats = false;              // Whether to log detailed memory stats
+            ds_u64 total_memory_budget = 256 * 1024 * 1024;  // Total memory budget (default: 256MB)
+            ds_u64 page_size = 64 * 1024;                    // Page size (default: 64KB)
+            ds_u32 max_concurrent_operations = 4;            // Maximum number of concurrent I/O operations
+            ds_u32 cache_seconds = 60 * 60;                  // How long to keep unused resources (in seconds)
+            ds_bool enable_predictive_loading = true;        // Whether to use predictive loading
+            ds_bool log_detailed_stats = false;              // Whether to log detailed memory stats
 
             // Memory budget percentages for each category (must add up to 100)
-            destan_u32 geometry_budget_percent = 30;
-            destan_u32 texture_budget_percent = 50;
-            destan_u32 audio_budget_percent = 10;
-            destan_u32 animation_budget_percent = 5;
-            destan_u32 script_budget_percent = 2;
-            destan_u32 generic_budget_percent = 3;
+            ds_u32 geometry_budget_percent = 30;
+            ds_u32 texture_budget_percent = 50;
+            ds_u32 audio_budget_percent = 10;
+            ds_u32 animation_budget_percent = 5;
+            ds_u32 script_budget_percent = 2;
+            ds_u32 generic_budget_percent = 3;
         };
 
         /**
@@ -119,15 +119,15 @@ namespace destan::core::memory
          */
         struct Resource_Request
         {
-            destan_u64 resource_id;                          // Unique identifier for the resource
-            const destan_char* path;                         // Path to the resource
+            ds_u64 resource_id;                          // Unique identifier for the resource
+            const ds_char* path;                         // Path to the resource
             Resource_Category category;                      // Resource category
             Resource_Priority priority;                      // Resource priority
             Access_Mode access_mode;                         // How the resource will be accessed
             Resource_Loaded_Callback callback;               // Callback when resource is loaded
             void* user_data;                                 // User data passed to callback
-            destan_bool auto_unload;                         // Whether to automatically unload
-            destan_u64 estimated_size;                       // Estimated size (used for preallocation)
+            ds_bool auto_unload;                         // Whether to automatically unload
+            ds_u64 estimated_size;                       // Estimated size (used for preallocation)
         };
 
         /**
@@ -135,15 +135,15 @@ namespace destan::core::memory
          */
         struct Resource_Info
         {
-            destan_u64 id;                                 // Unique identifier
-            destan_char path[256];                         // Path to the resource
+            ds_u64 id;                                 // Unique identifier
+            ds_char path[256];                         // Path to the resource
             Resource_Category category;                    // Resource category
             Resource_Priority priority;                    // Resource priority
             Resource_State state;                          // Current state
-            destan_u64 size;                               // Size in bytes
-            destan_u64 last_used_time;                     // Last time the resource was accessed
-            destan_bool auto_unload;                       // Whether to automatically unload
-            destan_u32 reference_count;                    // Number of active references
+            ds_u64 size;                               // Size in bytes
+            ds_u64 last_used_time;                     // Last time the resource was accessed
+            ds_bool auto_unload;                       // Whether to automatically unload
+            ds_u32 reference_count;                    // Number of active references
         };
 
         /**
@@ -151,26 +151,26 @@ namespace destan::core::memory
          */
         struct Stats
         {
-            destan_u64 total_memory_used;                   // Total memory used by all resources
-            destan_u64 total_memory_budget;                 // Total memory budget
+            ds_u64 total_memory_used;                   // Total memory used by all resources
+            ds_u64 total_memory_budget;                 // Total memory budget
 
             // Per-category statistics
             struct Category_Stats
             {
-                destan_u64 memory_used;                     // Memory used for this category
-                destan_u64 memory_budget;                   // Memory budget for this category
-                destan_u64 resource_count;                  // Number of resources in this category
+                ds_u64 memory_used;                     // Memory used for this category
+                ds_u64 memory_budget;                   // Memory budget for this category
+                ds_u64 resource_count;                  // Number of resources in this category
             };
 
             Category_Stats category_stats[6];               // Stats for each category
 
-            destan_u64 resource_count;                      // Total number of managed resources
-            destan_u32 loading_count;                       // Number of resources currently loading
-            destan_u32 failed_count;                        // Number of resources that failed to load
-            destan_u64 bytes_loaded;                        // Total bytes loaded in this session
-            destan_u64 bytes_unloaded;                      // Total bytes unloaded in this session
-            destan_u32 load_operations;                     // Total load operations
-            destan_u32 unload_operations;                   // Total unload operations
+            ds_u64 resource_count;                      // Total number of managed resources
+            ds_u32 loading_count;                       // Number of resources currently loading
+            ds_u32 failed_count;                        // Number of resources that failed to load
+            ds_u64 bytes_loaded;                        // Total bytes loaded in this session
+            ds_u64 bytes_unloaded;                      // Total bytes unloaded in this session
+            ds_u32 load_operations;                     // Total load operations
+            ds_u32 unload_operations;                   // Total unload operations
         };
 
         /**
@@ -179,7 +179,7 @@ namespace destan::core::memory
          * @param config Configuration for the streaming allocator
          * @param name Optional name for debugging purposes
          */
-        Streaming_Allocator(const Config& config = Config(), const destan_char* name = "Streaming_Allocator");
+        Streaming_Allocator(const Config& config = Config(), const ds_char* name = "Streaming_Allocator");
 
         /**
          * Destructor - releases all resources
@@ -209,7 +209,7 @@ namespace destan::core::memory
          * @param category Resource category
          * @return Handle to the prefetched resource
          */
-        Resource_Handle Prefetch_Resource(const destan_char* path, Resource_Category category = Resource_Category::GENERIC);
+        Resource_Handle Prefetch_Resource(const ds_char* path, Resource_Category category = Resource_Category::GENERIC);
 
         /**
          * Accesses a loaded resource
@@ -308,7 +308,7 @@ namespace destan::core::memory
          *
          * @return Allocator name
          */
-        const destan_char* Get_Name() const { return m_name; }
+        const ds_char* Get_Name() const { return m_name; }
 
     private:
         // Resource entry with additional internal information
@@ -329,14 +329,14 @@ namespace destan::core::memory
         {
             enum Type { LOAD, UNLOAD };
             Type type;                               // Operation type
-            destan_u64 resource_id;                  // Resource ID
-            const destan_char* path;                 // File path (for loads)
+            ds_u64 resource_id;                  // Resource ID
+            const ds_char* path;                 // File path (for loads)
             Resource_Priority priority;              // Priority of this operation
         };
 
         // Helper methods
-        Resource_Entry* Find_Resource_Entry(destan_u64 resource_id);
-        const Resource_Entry* Find_Resource_Entry(destan_u64 resource_id) const;
+        Resource_Entry* Find_Resource_Entry(ds_u64 resource_id);
+        const Resource_Entry* Find_Resource_Entry(ds_u64 resource_id) const;
         Resource_Entry* Find_Resource_Entry(Resource_Handle handle);
         const Resource_Entry* Find_Resource_Entry(Resource_Handle handle) const;
 
@@ -346,11 +346,11 @@ namespace destan::core::memory
         void Execute_Resource_Load(const IO_Operation& operation);
         void Execute_Resource_Unload(const IO_Operation& operation);
 
-        bool Has_Available_Memory(Resource_Category category, destan_u64 size) const;
-        void Update_Memory_Usage(Resource_Category category, destan_i64 size_delta);
-        destan_u64 Get_Memory_Budget(Resource_Category category) const;
+        bool Has_Available_Memory(Resource_Category category, ds_u64 size) const;
+        void Update_Memory_Usage(Resource_Category category, ds_i64 size_delta);
+        ds_u64 Get_Memory_Budget(Resource_Category category) const;
 
-        destan_u64 Generate_Resource_ID();
+        ds_u64 Generate_Resource_ID();
         bool Is_Resource_Ready(const Resource_Entry* entry) const;
 
         void Update_Resource_Distances(float player_x, float player_y, float player_z);
@@ -361,13 +361,13 @@ namespace destan::core::memory
         Config m_config;
 
         // Memory tracking
-        destan_u64 m_category_memory_used[6] = { 0 };   // Memory used per category
-        destan_u64 m_category_memory_budget[6] = { 0 }; // Memory budget per category
+        ds_u64 m_category_memory_used[6] = { 0 };   // Memory used per category
+        ds_u64 m_category_memory_budget[6] = { 0 }; // Memory budget per category
 
         // Resource tracking
-        static constexpr destan_u64 MAX_RESOURCES = 8192;
+        static constexpr ds_u64 MAX_RESOURCES = 8192;
         Resource_Entry m_resources[MAX_RESOURCES];
-        destan_u64 m_resource_count = 0;
+        ds_u64 m_resource_count = 0;
 
         // IO operation queues
         std::vector<IO_Operation> m_pending_operations;
@@ -385,17 +385,17 @@ namespace destan::core::memory
         Stats m_stats;
 
         // Timing
-        destan_u64 m_last_update_time = 0;
+        ds_u64 m_last_update_time = 0;
 
         // Resource ID counter
-        std::atomic<destan_u64> m_next_resource_id{ 1 };
+        std::atomic<ds_u64> m_next_resource_id{ 1 };
 
         // Thread synchronization
         std::mutex m_mutex;
 
         // Fixed-size buffer for name
-        static constexpr destan_u64 MAX_NAME_LENGTH = 64;
-        destan_char m_name[MAX_NAME_LENGTH];
+        static constexpr ds_u64 MAX_NAME_LENGTH = 64;
+        ds_char m_name[MAX_NAME_LENGTH];
     };
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

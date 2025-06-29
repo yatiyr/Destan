@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo Destan Engine - Visual Studio 2022 Project Generator
+echo DS Engine - Visual Studio 2022 Project Generator
 
 :: Output directory
 set CURRENT_DIR=%CD%
@@ -18,5 +18,5 @@ if errorlevel 1 (
 echo Solution successfully generated at: %CURRENT_DIR%
 echo Opening solution...
 
-start "" "%CURRENT_DIR%\Destan.sln"
+start "" "%CURRENT_DIR%\Ds.sln"
 pause

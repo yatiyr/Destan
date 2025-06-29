@@ -27,14 +27,14 @@
 
 
 // Entry point macro 
-#define DS_MAIN(AppClass) \
-    ds::core::Application* ds::core::Create_Application() { \
+#define DESTAN_MAIN(AppClass) \
+    destan::core::Application* destan::core::Create_Application() { \
         return new AppClass(); \
     }
 
 
-// Namespace ds
-namespace ds
+// Namespace destan
+namespace destan
 {
 
 // Version info
@@ -48,18 +48,18 @@ enum class Engine_Mode
     SHIPPING
 };
 
-#ifdef DS_DEBUG
+#ifdef DESTAN_DEBUG
     constexpr Engine_Mode CURRENT_MODE = Engine_Mode::DEBUG;
-#elif defined(DS_RELEASE)
+#elif defined(DESTAN_RELEASE)
     constexpr Engine_Mode CURRENT_MODE = Engine_Mode::RELEASE;
-#elif defined(DS_SHIPPING)
+#elif defined(DESTAN_SHIPPING)
     constexpr Engine_Mode CURRENT_MODE = Engine_Mode::SHIPPING;
 #endif
 
-} // namespace ds
+} // namespace destan
 
-// ds namespace for core
-namespace ds::core
+// destan namespace for core
+namespace destan::core
 {
     // Will be added
-} // namespace ds::core
+} // namespace destan::core

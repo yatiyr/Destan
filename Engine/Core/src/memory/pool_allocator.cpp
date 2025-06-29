@@ -1,18 +1,19 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/pool_allocator.h>
 
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
-    Pool_Allocator::Pool_Allocator(destan_u64 block_size, destan_u64 block_count, const destan_char* name)
+    Pool_Allocator::Pool_Allocator(ds_u64 block_size, ds_u64 block_count, const ds_char* name, ds_u64 alignment)
         : m_block_size(std::max(block_size, sizeof(Free_Block)))
         , m_block_count(block_count)
         , m_free_blocks(block_count)
+        , m_block_alignment(alignment)
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -22,8 +23,8 @@ namespace destan::core::memory
         }
         else {
             // Default name if none provided
-            const destan_char* default_name = "Pool";
-            destan_u64 i = 0;
+            const ds_char* default_name = "Pool";
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -32,73 +33,70 @@ namespace destan::core::memory
             m_name[i] = '\0';
         }
 
-        // Set block alignment to DEFAULT_ALIGNMENT or higher if required
-        m_block_alignment = DEFAULT_ALIGNMENT;
-
         // Calculate padded block size to ensure proper alignment
         m_padded_block_size = Memory::Align_Size(m_block_size, m_block_alignment);
 
         // Calculate total memory size needed
-        destan_u64 blocks_size = m_padded_block_size * block_count;
-        destan_u64 total_size = blocks_size;
+        ds_u64 blocks_size = m_padded_block_size * block_count;
+        ds_u64 total_size = blocks_size;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Add space for debug tracking in debug builds
-        destan_u64 debug_tracking_size = block_count * sizeof(Allocation_Info);
-        destan_u64 debug_tracking_aligned_size = Memory::Align_Size(debug_tracking_size, CACHE_LINE_SIZE);
+        ds_u64 debug_tracking_size = block_count * sizeof(Allocation_Info);
+        ds_u64 debug_tracking_aligned_size = Memory::Align_Size(debug_tracking_size, CACHE_LINE_SIZE);
         total_size += debug_tracking_aligned_size;
 #endif
 
         // Allocate the pool memory with cache line alignment for optimal performance
         m_memory_pool = Memory::Malloc(total_size, CACHE_LINE_SIZE);
-        DESTAN_ASSERT(m_memory_pool, "Failed to allocate memory for Pool Allocator");
+        DS_ASSERT(m_memory_pool, "Failed to allocate memory for Pool Allocator");
 
         // Initialize the free block linked list
         Free_Block* current = static_cast<Free_Block*>(m_memory_pool);
         m_free_list = current;
 
         // Chain all blocks together
-        for (destan_u64 i = 0; i < block_count - 1; ++i)
+        for (ds_u64 i = 0; i < block_count - 1; ++i)
         {
-            current->next = reinterpret_cast<Free_Block*>(reinterpret_cast<destan_char*>(current) + m_padded_block_size);
+            current->next = reinterpret_cast<Free_Block*>(reinterpret_cast<ds_char*>(current) + m_padded_block_size);
             current = current->next;
         }
 
         // Last block's next pointer is null
         current->next = nullptr;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Set up debug tracking array at the end of the pool
-        m_debug_blocks = reinterpret_cast<Allocation_Info*>(static_cast<destan_char*>(m_memory_pool) + blocks_size);
+        m_debug_blocks = reinterpret_cast<Allocation_Info*>(static_cast<ds_char*>(m_memory_pool) + blocks_size);
 
         // Initialize debug tracking info
-        for (destan_u64 i = 0; i < block_count; ++i)
+        for (ds_u64 i = 0; i < block_count; ++i)
         {
-            void* block_ptr = static_cast<destan_char*>(m_memory_pool) + (i * m_padded_block_size);
+            void* block_ptr = static_cast<ds_char*>(m_memory_pool) + (i * m_padded_block_size);
             // Use placement new to properly initialize the struct
             new(&m_debug_blocks[i]) Allocation_Info{ block_ptr, nullptr, 0, false };
         }
 
-        for (destan_u64 i = 0; i < block_count; ++i)
+        for (ds_u64 i = 0; i < block_count; ++i)
         {
             // Calculate the start of this block
-            void* block_start = static_cast<destan_char*>(m_memory_pool) + (i * m_padded_block_size);
+            void* block_start = static_cast<ds_char*>(m_memory_pool) + (i * m_padded_block_size);
 
             // Skip the Free_Block structure to get to the user data area
-            void* user_data = reinterpret_cast<destan_char*>(block_start) + sizeof(Free_Block);
+            void* user_data = reinterpret_cast<ds_char*>(block_start) + sizeof(Free_Block);
 
             // Calculate the size of the user portion (block size minus the Free_Block size)
-            destan_u64 user_size = m_padded_block_size - sizeof(Free_Block);
+            ds_u64 user_size = m_padded_block_size - sizeof(Free_Block);
 
             // Fill only the user area with the pattern
             Memory::Memset(user_data, 0xCD, user_size);
         }
 
-        DESTAN_LOG_INFO("Pool allocator '{0}' created with {1} blocks, {2} bytes each, {3} bytes total (+ {4} bytes debug info)",
+        DS_LOG_INFO("Pool allocator '{0}' created with {1} blocks, {2} bytes each, {3} bytes total (+ {4} bytes debug info)",
             m_name, block_count, m_block_size, blocks_size, debug_tracking_aligned_size);
 #else
         // In release builds, just log basic information
-        DESTAN_LOG_INFO("Pool allocator '{0}' created with {1} blocks, {2} bytes each, {3} bytes total",
+        DS_LOG_INFO("Pool allocator '{0}' created with {1} blocks, {2} bytes each, {3} bytes total",
             m_name, block_count, m_block_size, total_size);
 #endif
     }
@@ -108,16 +106,16 @@ namespace destan::core::memory
         // Free the pool memory
         if (m_memory_pool)
         {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Check for leaks before freeing
-            destan_u64 allocated = Get_Allocated_Block_Count();
+            ds_u64 allocated = Get_Allocated_Block_Count();
             if (allocated > 0)
             {
-                DESTAN_LOG_WARN("Pool '{0}' destroyed with {1} active allocations", m_name, allocated);
+                DS_LOG_WARN("Pool '{0}' destroyed with {1} active allocations", m_name, allocated);
             }
 
             // Fill with pattern to catch use-after-free
-            destan_u64 total_size = m_padded_block_size * m_block_count;
+            ds_u64 total_size = m_padded_block_size * m_block_count;
             Memory::Memset(m_memory_pool, 0xDD, total_size); // 0xDD = "Dead Dynamic memory"
 
             // No need to separately free debug blocks as they are part of our main allocation
@@ -150,7 +148,7 @@ namespace destan::core::memory
         other.m_block_count = 0;
         other.m_free_blocks.store(0, std::memory_order_relaxed);
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Move debug blocks
         m_debug_blocks = other.m_debug_blocks;
         other.m_debug_blocks = nullptr;
@@ -188,13 +186,13 @@ namespace destan::core::memory
             other.m_block_count = 0;
             other.m_free_blocks.store(0, std::memory_order_relaxed);
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Debug blocks are part of the main memory allocation, so they moved with it
             // We just need to calculate their position in the new memory
             if (m_memory_pool)
             {
-                destan_u64 blocks_size = m_padded_block_size * m_block_count;
-                m_debug_blocks = reinterpret_cast<Allocation_Info*>(static_cast<destan_char*>(m_memory_pool) + blocks_size);
+                ds_u64 blocks_size = m_padded_block_size * m_block_count;
+                m_debug_blocks = reinterpret_cast<Allocation_Info*>(static_cast<ds_char*>(m_memory_pool) + blocks_size);
             }
             else
             {
@@ -214,7 +212,7 @@ namespace destan::core::memory
         // Check if we have free blocks
         if (!m_free_list)
         {
-            DESTAN_LOG_ERROR("Pool '{0}' allocation failed: pool is full ({1} blocks)",
+            DS_LOG_ERROR("Pool '{0}' allocation failed: pool is full ({1} blocks)",
                 m_name, m_block_count);
             Unlock();
             return nullptr;
@@ -227,9 +225,9 @@ namespace destan::core::memory
         // Update free block count atomically
         m_free_blocks.fetch_sub(1, std::memory_order_relaxed);
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Find and mark the block as allocated in debug info
-        destan_u64 block_index = Get_Block_Index(block);
+        ds_u64 block_index = Get_Block_Index(block);
         if (block_index < m_block_count)
         {
             m_debug_blocks[block_index].allocated = true;
@@ -254,7 +252,7 @@ namespace destan::core::memory
         // Validate the pointer belongs to our pool
         if (!Is_Address_In_Pool(ptr))
         {
-            DESTAN_LOG_ERROR("Pool '{0}' deallocation failed: pointer {1} not from this pool",
+            DS_LOG_ERROR("Pool '{0}' deallocation failed: pointer {1} not from this pool",
                 m_name, ptr);
             Unlock();
             return false;
@@ -263,20 +261,20 @@ namespace destan::core::memory
         // Check if address is at a valid block boundary
         if ((reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(m_memory_pool)) % m_padded_block_size != 0)
         {
-            DESTAN_LOG_ERROR("Pool '{0}' deallocation failed: pointer {1} not aligned to block boundary",
+            DS_LOG_ERROR("Pool '{0}' deallocation failed: pointer {1} not aligned to block boundary",
                 m_name, ptr);
             Unlock();
             return false;
         }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Update debug state
-        destan_u64 block_index = Get_Block_Index(ptr);
+        ds_u64 block_index = Get_Block_Index(ptr);
         if (block_index < m_block_count)
         {
             if (!m_debug_blocks[block_index].allocated)
             {
-                DESTAN_LOG_ERROR("Pool '{0}' double-free detected at {1}", m_name, ptr);
+                DS_LOG_ERROR("Pool '{0}' double-free detected at {1}", m_name, ptr);
                 Unlock();
                 return false;
             }
@@ -310,10 +308,10 @@ namespace destan::core::memory
         m_free_list = current;
 
         // Chain all blocks together
-        for (destan_u64 i = 0; i < m_block_count - 1; ++i)
+        for (ds_u64 i = 0; i < m_block_count - 1; ++i)
         {
             current->next = reinterpret_cast<Free_Block*>(
-                reinterpret_cast<destan_char*>(current) + m_padded_block_size
+                reinterpret_cast<ds_char*>(current) + m_padded_block_size
                 );
             current = current->next;
         }
@@ -324,18 +322,18 @@ namespace destan::core::memory
         // Reset free block count atomically
         m_free_blocks.store(m_block_count, std::memory_order_relaxed);
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Reset all debug blocks
-        for (destan_u64 i = 0; i < m_block_count; ++i)
+        for (ds_u64 i = 0; i < m_block_count; ++i)
         {
             m_debug_blocks[i].allocated = false;
         }
 
         // Fill memory with pattern to help identify uninitialized memory
-        destan_u64 total_size = m_padded_block_size * m_block_count;
+        ds_u64 total_size = m_padded_block_size * m_block_count;
         Memory::Memset(m_memory_pool, 0xCD, total_size);
 
-        DESTAN_LOG_INFO("Pool '{0}' reset: all {1} blocks now available", m_name, m_block_count);
+        DS_LOG_INFO("Pool '{0}' reset: all {1} blocks now available", m_name, m_block_count);
 #endif
 
         Unlock();
@@ -352,7 +350,7 @@ namespace destan::core::memory
         return (ptr_addr >= pool_start && ptr_addr < pool_end);
     }
 
-    destan_u64 Pool_Allocator::Get_Block_Index(void* ptr) const
+    ds_u64 Pool_Allocator::Get_Block_Index(void* ptr) const
     {
         // Calculate the block index from the pointer
         uintptr_t pool_start = reinterpret_cast<uintptr_t>(m_memory_pool);
@@ -363,20 +361,20 @@ namespace destan::core::memory
 
     void Pool_Allocator::Lock()
     {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         m_mutex.lock();
 #endif
     }
 
     void Pool_Allocator::Unlock()
     {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         m_mutex.unlock();
 #endif
     }
 
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
     void* Pool_Allocator::Allocate_Debug(const char* file, int line)
     {
         // Perform the allocation
@@ -386,7 +384,7 @@ namespace destan::core::memory
         if (ptr)
         {
             Lock();
-            destan_u64 block_index = Get_Block_Index(ptr);
+            ds_u64 block_index = Get_Block_Index(ptr);
             if (block_index < m_block_count) {
                 m_debug_blocks[block_index].file = file;
                 m_debug_blocks[block_index].line = line;
@@ -417,10 +415,10 @@ namespace destan::core::memory
             ss << "  Block # |    Address    | Source Location" << std::endl;
             ss << "--------------------------------------------------" << std::endl;
 
-            const destan_u64 MAX_BLOCKS_TO_SHOW = 20; // Limit for readability
-            destan_u64 blocks_shown = 0;
+            const ds_u64 MAX_BLOCKS_TO_SHOW = 20; // Limit for readability
+            ds_u64 blocks_shown = 0;
 
-            for (destan_u64 i = 0; i < m_block_count && blocks_shown < MAX_BLOCKS_TO_SHOW; ++i)
+            for (ds_u64 i = 0; i < m_block_count && blocks_shown < MAX_BLOCKS_TO_SHOW; ++i)
             {
                 if (m_debug_blocks[i].allocated)
                 {
@@ -441,7 +439,7 @@ namespace destan::core::memory
                 }
             }
 
-            destan_u64 allocated = Get_Allocated_Block_Count();
+            ds_u64 allocated = Get_Allocated_Block_Count();
             if (allocated > MAX_BLOCKS_TO_SHOW)
             {
                 ss << "... and " << (allocated - MAX_BLOCKS_TO_SHOW)
@@ -450,10 +448,10 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
 
         Unlock();
     }
 #endif
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

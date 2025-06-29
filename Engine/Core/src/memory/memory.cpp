@@ -1,22 +1,22 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/memory.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
 	// Initialize static members using atomic types for lock-free access
 	std::atomic<Memory_Init_State> Memory::s_init_state{Memory_Init_State::Uninitialized};
-	std::atomic<destan_u64> Memory::s_total_allocated{0};
-	std::atomic<destan_u64> Memory::s_total_freed{0};
-	std::atomic<destan_u64> Memory::s_allocation_count{0};
+	std::atomic<ds_u64> Memory::s_total_allocated{0};
+	std::atomic<ds_u64> Memory::s_total_freed{0};
+	std::atomic<ds_u64> Memory::s_allocation_count{0};
 
 	// Mutex for operations that require exclusive access
 	// We only use this when atomic operations aren't sufficient
 	static std::mutex s_memory_mutex;
 
 	// Debug tracking variables
-#ifdef DESTAN_DEBUG
-	static std::atomic<destan_u64> s_next_allocation_id{1};
-	static constexpr destan_u32 FOOTER_GUARD_PATTERN = 0xCDCDCDCD;
+#ifdef DS_DEBUG
+	static std::atomic<ds_u64> s_next_allocation_id{1};
+	static constexpr ds_u32 FOOTER_GUARD_PATTERN = 0xCDCDCDCD;
 #endif
 
 	// Thread-local allocator data
@@ -25,23 +25,23 @@ namespace destan::core::memory
 	thread_local struct Thread_Local_Allocator
 	{
 		// Small memory blocks for quick allocation (no locks needed)
-		static constexpr destan_u64 BLOCK_SIZE = 4096; // 4KB Blocks
-		static constexpr destan_u64 MAX_BLOCKS = 16;   // Max 16 blocks per thread
+		static constexpr ds_u64 BLOCK_SIZE = 4096; // 4KB Blocks
+		static constexpr ds_u64 MAX_BLOCKS = 16;   // Max 16 blocks per thread
 
 		struct Block
 		{
 			char data[BLOCK_SIZE];
-			destan_u64 offset = 0;
+			ds_u64 offset = 0;
 		};
 
 		Block* blocks[MAX_BLOCKS] = {nullptr};
-		destan_u64 block_count = 0;
-		destan_u64 allocations = 0;
+		ds_u64 block_count = 0;
+		ds_u64 allocations = 0;
 
 		// Cleanup on thread exit
 		~Thread_Local_Allocator()
 		{
-			for (destan_u64 i = 0; i < block_count; i++)
+			for (ds_u64 i = 0; i < block_count; i++)
 			{
 				if (blocks[i])
 				{
@@ -53,7 +53,7 @@ namespace destan::core::memory
 		}
 
 		// Try to allocate from thread-local storage
-		void* Allocate(destan_u64 size, destan_u64 alignment)
+		void* Allocate(ds_u64 size, ds_u64 alignment)
 		{
 			// If allocation is too large, don't use thread-local storage
 			if (size > BLOCK_SIZE / 2)
@@ -62,14 +62,14 @@ namespace destan::core::memory
 			}
 
 			// Try to find a block with enough space
-			for (destan_u64 i = 0; i < block_count; i++)
+			for (ds_u64 i = 0; i < block_count; i++)
 			{
 				Block* block = blocks[i];
 
 				// Calculate aligned address
-				destan_u64 current = reinterpret_cast<destan_u64>(block->data + block->offset);
-				destan_u64 aligned = (current + alignment - 1) & ~(alignment - 1);
-				destan_u64 adjustment = aligned - current;
+				ds_u64 current = reinterpret_cast<ds_u64>(block->data + block->offset);
+				ds_u64 aligned = (current + alignment - 1) & ~(alignment - 1);
+				ds_u64 adjustment = aligned - current;
 
 				// Check if there's enough space
 				if (block->offset + adjustment + size <= BLOCK_SIZE)
@@ -86,7 +86,7 @@ namespace destan::core::memory
 				Block* new_block = static_cast<Block*>(std::malloc(sizeof(Block)));
 				if (!new_block)
 				{
-					DESTAN_LOG_ERROR("Thread-local allocator ran out of memory!");
+					DS_LOG_ERROR("Thread-local allocator ran out of memory!");
 					return nullptr;
 				}
 
@@ -94,16 +94,16 @@ namespace destan::core::memory
 				blocks[block_count++] = new_block;
 
 				// Now allocate from the new block
-				destan_u64 current = reinterpret_cast<destan_u64>(new_block->data);
-				destan_u64 aligned = (current + alignment - 1) & ~(alignment - 1);
-				destan_u64 adjustment = aligned - current;
+				ds_u64 current = reinterpret_cast<ds_u64>(new_block->data);
+				ds_u64 aligned = (current + alignment - 1) & ~(alignment - 1);
+				ds_u64 adjustment = aligned - current;
 
 				new_block->offset = adjustment + size;
 				allocations++;
 				return reinterpret_cast<void*>(aligned);
 			}
 
-			DESTAN_LOG_ERROR("Could not allocate from thread-local storage!");
+			DS_LOG_ERROR("Could not allocate from thread-local storage!");
 			return nullptr;
 		}
 
@@ -113,7 +113,7 @@ namespace destan::core::memory
 		bool Free(void* ptr)
 		{
 			// Check if the pointer is within any of the blocks
-			for (destan_u64 i = 0; i < block_count; i++)
+			for (ds_u64 i = 0; i < block_count; i++)
 			{
 				if (ptr >= blocks[i]->data && ptr < blocks[i]->data + BLOCK_SIZE)
 				{
@@ -129,7 +129,7 @@ namespace destan::core::memory
 		// Reset all blocks (keep them allocated but mark as empty)
 		void Reset()
 		{
-			for (destan_u64 i = 0; i < block_count; i++)
+			for (ds_u64 i = 0; i < block_count; i++)
 			{
 				blocks[i]->offset = 0;
 			}
@@ -192,10 +192,10 @@ namespace destan::core::memory
 		return s_init_state.load(std::memory_order_relaxed) == Memory_Init_State::Initialized;
 	}
 
-	void* Memory::Malloc(destan_u64 size, destan_u64 alignment, bool thread_local_allocation)
+	void* Memory::Malloc(ds_u64 size, ds_u64 alignment, bool thread_local_allocation)
 	{
 		// Validate inputs
-		DESTAN_ASSERT(size > 0, "Malloc called with size = 0!");
+		DS_ASSERT(size > 0, "Malloc called with size = 0!");
 
 		if (alignment == 0)
 		{
@@ -206,7 +206,7 @@ namespace destan::core::memory
 		if ((alignment & (alignment - 1)) != 0)
 		{
 			// Round up to the next power of 2
-			DESTAN_LOG_WARN("Alignment is not a power of 2! Rounding up...");
+			DS_LOG_WARN("Alignment is not a power of 2! Rounding up...");
 			alignment--;
 			alignment |= alignment >> 1;
 			alignment |= alignment >> 2;
@@ -230,20 +230,20 @@ namespace destan::core::memory
 			}
 		}
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// Calculate space needed for our control structures
-		const destan_u64 header_size = sizeof(Allocation_Header);
-		const destan_u64 footer_size = sizeof(destan_u32);
+		const ds_u64 header_size = sizeof(Allocation_Header);
+		const ds_u64 footer_size = sizeof(ds_u32);
 
 		// We need to store the original pointer returned by malloc
 		// so we can free it correctly later
-		const destan_u64 ptr_size = sizeof(void*);
+		const ds_u64 ptr_size = sizeof(void*);
 
 		// Total overhead for all control structures
-		const destan_u64 total_overhead = header_size + footer_size + ptr_size;
+		const ds_u64 total_overhead = header_size + footer_size + ptr_size;
 
 		// Calculate total size including alignment padding
-		const destan_u64 total_size = size + total_overhead + alignment;
+		const ds_u64 total_size = size + total_overhead + alignment;
 
 		// Allocate the raw block
 		void* raw_block = std::malloc(total_size);
@@ -251,8 +251,8 @@ namespace destan::core::memory
 
 		// Calculate aligned user data address
 		char* user_data = reinterpret_cast<char*>(raw_block) + header_size + ptr_size;
-		user_data = reinterpret_cast<destan_char*>(
-			Align_Size(reinterpret_cast<destan_uiptr>(user_data), alignment)
+		user_data = reinterpret_cast<ds_char*>(
+			Align_Size(reinterpret_cast<ds_uiptr>(user_data), alignment)
 			);
 
 		// Calculate where to store the header (right before the pointer storage)
@@ -266,14 +266,14 @@ namespace destan::core::memory
 
 		// Initialize the header
 		header->size = size;
-		header->alignment = static_cast<destan_u32>(alignment);
+		header->alignment = static_cast<ds_u32>(alignment);
 		header->file = ""; // Will be filled by Malloc_Debug if called
 		header->line = 0;  // Will be filled by Malloc_Debug if called
 		header->allocation_id = s_next_allocation_id.fetch_add(1, std::memory_order_relaxed);
 		header->guard_value = Allocation_Header::GUARD_PATTERN;
 
 		// Set up the footer
-		destan_u32* footer = reinterpret_cast<destan_u32*>(user_data + size);
+		ds_u32* footer = reinterpret_cast<ds_u32*>(user_data + size);
 		*footer = FOOTER_GUARD_PATTERN;
 
 		// Update statistics
@@ -306,30 +306,30 @@ namespace destan::core::memory
 		}
 
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// The original malloc pointer is stored right before the user data
 		void** original_ptr_storage = reinterpret_cast<void**>(
-			reinterpret_cast<destan_char*>(ptr) - sizeof(void*)
+			reinterpret_cast<ds_char*>(ptr) - sizeof(void*)
 			);
 		void* original_ptr = *original_ptr_storage;
 
 		// The header is right before the pointer storage
 		Allocation_Header* header = reinterpret_cast<Allocation_Header*>(
-			reinterpret_cast<destan_char*>(original_ptr_storage) - sizeof(Allocation_Header)
+			reinterpret_cast<ds_char*>(original_ptr_storage) - sizeof(Allocation_Header)
 			);
 
 		// Validate the header
 		if (header->guard_value != Allocation_Header::GUARD_PATTERN) {
-			DESTAN_LOG_ERROR("Memory corruption detected in header while freeing {0}!", ptr);
+			DS_LOG_ERROR("Memory corruption detected in header while freeing {0}!", ptr);
 			// Still attempt to free to avoid leaks
 		}
 
 		// Validate the footer
-		destan_u32* footer = reinterpret_cast<destan_u32*>(
-			reinterpret_cast<destan_char*>(ptr) + header->size
+		ds_u32* footer = reinterpret_cast<ds_u32*>(
+			reinterpret_cast<ds_char*>(ptr) + header->size
 			);
 		if (*footer != FOOTER_GUARD_PATTERN) {
-			DESTAN_LOG_ERROR("Memory corruption detected in footer while freeing {0}!", ptr);
+			DS_LOG_ERROR("Memory corruption detected in footer while freeing {0}!", ptr);
 		}
 
 		// Clear memory to catch use-after-free
@@ -348,7 +348,7 @@ namespace destan::core::memory
 #endif
 	}
 
-	void* Memory::Realloc(void* ptr, destan_u64 new_size, destan_u64 alignment)
+	void* Memory::Realloc(void* ptr, ds_u64 new_size, ds_u64 alignment)
 	{
 		if (new_size == 0)
 		{
@@ -361,20 +361,20 @@ namespace destan::core::memory
 			return Malloc(new_size, alignment);
 		}
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// Try to get the allocation header
 		Allocation_Header* header = Get_Header(ptr);
 
 		// If we have a valid header (not a thread-local allocation)
 		if (header && Validate_Header(header))
 		{
-			destan_u64 current_size = header->size;
+			ds_u64 current_size = header->size;
 
 			// Allocate new block
 			void* new_ptr = Malloc(new_size, alignment);
 			if (!new_ptr)
 			{
-				DESTAN_LOG_ERROR("Failed to reallocate memory!");
+				DS_LOG_ERROR("Failed to reallocate memory!");
 				return nullptr;
 			}
 
@@ -392,7 +392,7 @@ namespace destan::core::memory
 		void* new_ptr = Malloc(new_size, alignment);
 		if (!new_ptr)
 		{
-			DESTAN_LOG_ERROR("Failed to reallocate memory!");
+			DS_LOG_ERROR("Failed to reallocate memory!");
 			return nullptr;
 		}
 
@@ -405,7 +405,7 @@ namespace destan::core::memory
 		return new_ptr;
 	}
 
-	void* Memory::Thread_Local_Malloc(destan_u64 size, destan_u64 alignment)
+	void* Memory::Thread_Local_Malloc(ds_u64 size, ds_u64 alignment)
 	{
 		// Ensure thread-local allocator is initialized
 		if (!s_thread_local_allocator)
@@ -428,41 +428,41 @@ namespace destan::core::memory
 		return false;
 	}
 
-	void* Memory::Memmove(void* dest, const void* src, destan_u64 size)
+	void* Memory::Memmove(void* dest, const void* src, ds_u64 size)
 	{
 		return std::memmove(dest, src, size);
 	}
 
-	void* Memory::Memcpy(void* dest, const void* src, destan_u64 size)
+	void* Memory::Memcpy(void* dest, const void* src, ds_u64 size)
 	{
 		return std::memcpy(dest, src, size);
 	}
 
-	void* Memory::Memset(void* dest, destan_i32 value, destan_u64 size)
+	void* Memory::Memset(void* dest, ds_i32 value, ds_u64 size)
 	{
 		return std::memset(dest, value, size);
 	}
 
-	destan_i32 Memory::Memcmp(const void* ptr1, const void* ptr2, destan_u64 size)
+	ds_i32 Memory::Memcmp(const void* ptr1, const void* ptr2, ds_u64 size)
 	{
 		return std::memcmp(ptr1, ptr2, size);
 	}
 
-	destan_u64 Memory::Get_Allocation_Size(void* ptr)
+	ds_u64 Memory::Get_Allocation_Size(void* ptr)
 	{
 		if (!ptr)
 		{
 			return 0;
 		}
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// In debug mode, we can get the exact size from the header
 		Allocation_Header* header = Get_Header(ptr);
 
 		// Validate the header first
 		if (!header || !Validate_Header(header))
 		{
-			DESTAN_LOG_ERROR("Memory corruption detected while getting the size of the memory at {0}!", ptr);
+			DS_LOG_ERROR("Memory corruption detected while getting the size of the memory at {0}!", ptr);
 			return 0;
 		}
 
@@ -473,25 +473,25 @@ namespace destan::core::memory
 #endif
 	}
 
-	destan_u64 Memory::Get_Total_Allocated()
+	ds_u64 Memory::Get_Total_Allocated()
 	{
 		// No lock needed - atomic operation
 		return s_total_allocated.load(std::memory_order_relaxed);
 	}
 
-	destan_u64 Memory::Get_Total_Freed()
+	ds_u64 Memory::Get_Total_Freed()
 	{
 		// No lock needed - atomic operation
 		return s_total_freed.load(std::memory_order_relaxed);
 	}
 
-	destan_u64 Memory::Get_Allocation_Count()
+	ds_u64 Memory::Get_Allocation_Count()
 	{
 		// No lock needed - atomic operation
 		return s_allocation_count.load(std::memory_order_relaxed);
 	}
 
-	destan_u64 Memory::Get_Current_Used_Memory()
+	ds_u64 Memory::Get_Current_Used_Memory()
 	{
 		// No lock needed - atomic operation
 		return s_total_allocated.load(std::memory_order_relaxed) - s_total_freed.load(std::memory_order_relaxed);
@@ -500,9 +500,9 @@ namespace destan::core::memory
 	void Memory::Dump_Memory_Stats()
 	{
 		// Use atomic loads to get consistent state without locking
-		destan_u64 total_allocated = s_total_allocated.load(std::memory_order_relaxed);
-		destan_u64 total_freed = s_total_freed.load(std::memory_order_relaxed);
-		destan_u64 allocation_count = s_allocation_count.load(std::memory_order_relaxed);
+		ds_u64 total_allocated = s_total_allocated.load(std::memory_order_relaxed);
+		ds_u64 total_freed = s_total_freed.load(std::memory_order_relaxed);
+		ds_u64 allocation_count = s_allocation_count.load(std::memory_order_relaxed);
 
 		std::stringstream ss;
 		ss << "\n========== Memory Stats ==========" << std::endl;
@@ -522,18 +522,18 @@ namespace destan::core::memory
 			ss << "  Active Allocations: " << s_thread_local_allocator->allocations << std::endl;
 		}
 		ss << "=================================" << std::endl;
-		DESTAN_LOG_INFO("{}", ss.str());
+		DS_LOG_INFO("{}", ss.str());
 	}
 
 	void Memory::Check_Memory_Leaks()
 	{
 		// Atomic load for consistent state
-		destan_u64 allocation_count = s_allocation_count.load(std::memory_order_relaxed);
+		ds_u64 allocation_count = s_allocation_count.load(std::memory_order_relaxed);
 
 		if (allocation_count > 0)
 		{
-			destan_u64 total_allocated = s_total_allocated.load(std::memory_order_relaxed);
-			destan_u64 total_freed = s_total_freed.load(std::memory_order_relaxed);
+			ds_u64 total_allocated = s_total_allocated.load(std::memory_order_relaxed);
+			ds_u64 total_freed = s_total_freed.load(std::memory_order_relaxed);
 
 			std::stringstream ss;
 			ss << "MEMORY LEAK DETECTED: " << allocation_count
@@ -563,29 +563,29 @@ namespace destan::core::memory
 		// Nothing to do here, thread-local storage is cleaned up when threads exit
 	}
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 	void* Memory::Get_User_Pointer(Allocation_Header* header)
 	{
 		// Calculate the user pointer based on the header
-		const destan_u64 header_size = sizeof(Allocation_Header);
-		return reinterpret_cast<void*>(Align_Size(reinterpret_cast<destan_uiptr>(header) + header_size, header->alignment));
+		const ds_u64 header_size = sizeof(Allocation_Header);
+		return reinterpret_cast<void*>(Align_Size(reinterpret_cast<ds_uiptr>(header) + header_size, header->alignment));
 	}
 
 	Memory::Allocation_Header* Memory::Get_Header(void* user_ptr)
 	{
 		// Search backwards for the header
-		destan_uiptr max_backwards_offset = sizeof(Allocation_Header) + DEFAULT_ALIGNMENT;
-		destan_uiptr user_addr = reinterpret_cast<destan_uiptr>(user_ptr);
+		ds_uiptr max_backwards_offset = sizeof(Allocation_Header) + DEFAULT_ALIGNMENT;
+		ds_uiptr user_addr = reinterpret_cast<ds_uiptr>(user_ptr);
 
 		// Start from a reasonable offset and search backwards
-		for (destan_uiptr offset = 0; offset <= max_backwards_offset; offset += sizeof(void*))
+		for (ds_uiptr offset = 0; offset <= max_backwards_offset; offset += sizeof(void*))
 		{
 			if (offset > user_addr)
 			{
 				break; // Prevent underflow
 			}
 
-			destan_uiptr potential_header_addr = user_addr - offset;
+			ds_uiptr potential_header_addr = user_addr - offset;
 			Allocation_Header* potential_header = reinterpret_cast<Allocation_Header*>(potential_header_addr);
 
 			// Check if this looks like a valid pointer
@@ -623,7 +623,7 @@ namespace destan::core::memory
 		return true;
 	}
 
-	void* Memory::Malloc_Debug(destan_u64 size, destan_u64 alignment, const char* file, int line)
+	void* Memory::Malloc_Debug(ds_u64 size, ds_u64 alignment, const char* file, int line)
 	{
 		void* ptr = Malloc(size, alignment);
 		if (ptr)
@@ -647,4 +647,4 @@ namespace destan::core::memory
 	}
 #endif
 
-} // namespace destan::core::memory
+} // namespace ds::core::memory

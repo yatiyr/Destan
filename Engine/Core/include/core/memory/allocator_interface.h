@@ -1,7 +1,7 @@
 #pragma once
 #include <core/defines.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
     // Allocator interface for container compatibility
     template<typename T>
@@ -12,8 +12,8 @@ namespace destan::core::memory
 
         virtual ~Allocator_Interface() = default;
 
-        virtual T* allocate(destan_u64 n) = 0;
-        virtual void deallocate(T* p, destan_u64 n) = 0;
+        virtual T* allocate(ds_u64 n) = 0;
+        virtual void deallocate(T* p, ds_u64 n) = 0;
 
         template<typename U, typename... Args>
         void construct(U* p, Args&&... args)

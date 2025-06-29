@@ -60,13 +60,13 @@
     #include <TargetConditionals.h>
 #endif
 
-#ifdef DS_PLATFORM_WINDOWS
+#ifdef DESTAN_PLATFORM_WINDOWS
 #include <Windows.h>
-#elif defined(DS_PLATFORM_LINUX)
+#elif defined(DESTAN_PLATFORM_LINUX)
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
-#elif defined(DS_PLATFORM_MACOS)
+#elif defined(DESTAN_PLATFORM_MACOS)
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>

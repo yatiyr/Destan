@@ -3,7 +3,7 @@
 #include <core/defines.h>
 
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
 	/**
 	 *  Free List Allocator
@@ -40,9 +40,9 @@ namespace destan::core::memory
 		 * @param strategy Allocation strategy to use
 		 * @param name Optional name for debugging purposes
 		 */
-		Free_List_Allocator(destan_u64 size_bytes,
+		Free_List_Allocator(ds_u64 size_bytes,
 			Allocation_Strategy strategy = Allocation_Strategy::FIND_BEST,
-			const destan_char* name = "Free_List");
+			const ds_char* name = "Free_List");
 
 		/**
 		 * Destructor releases the entire memory region
@@ -64,7 +64,7 @@ namespace destan::core::memory
 		 * @param alignment Memory alignment (defaults to DEFAULT_ALIGNMENT)
 		 * @return Pointer to the allocated memory or nullptr if allocation failed
 		 */
-		void* Allocate(destan_u64 size, destan_u64 alignment = DEFAULT_ALIGNMENT);
+		void* Allocate(ds_u64 size, ds_u64 alignment = DEFAULT_ALIGNMENT);
 
 		/**
 		 * Allocates and constructs an object of Type T
@@ -141,51 +141,51 @@ namespace destan::core::memory
 		 *
 		 * @return Number of blocks that were coalesced
 		 */
-		destan_u64 Defragment();
+		ds_u64 Defragment();
 
 		/**
 		 * Returns the total size of the memory region in bytes
 		 */
-		destan_u64 Get_Size() const { return m_size; }
+		ds_u64 Get_Size() const { return m_size; }
 
 		/**
 		 * Returns the current used size in bytes
 		 */
-		destan_u64 Get_Used_Size();
+		ds_u64 Get_Used_Size();
 
 		/**
 		 * Returns the remaining free size in bytes
 		 */
-		destan_u64 Get_Free_Size();
+		ds_u64 Get_Free_Size();
 
 		/**
 		 * Returns the number of free blocks in the free list
 		 */
-		destan_u64 Get_Free_Block_Count() const { return m_free_block_count; }
+		ds_u64 Get_Free_Block_Count() const { return m_free_block_count; }
 
 		/**
 		 * Returns the memory utilization percentage
 		 */
-		destan_f32 Get_Utilization()
+		ds_f32 Get_Utilization()
 		{
-			return static_cast<destan_f32>(Get_Used_Size()) / static_cast<destan_f32>(m_size) * 100.0f;
+			return static_cast<ds_f32>(Get_Used_Size()) / static_cast<ds_f32>(m_size) * 100.0f;
 		}
 
 		/**
 		 * Returns the name of this allocator
 		 */
-		const destan_char* Get_Name() const { return m_name; }
+		const ds_char* Get_Name() const { return m_name; }
 
 		/**
 		 * Returns the largest free block size
 		 */
-		destan_u64 Get_Largest_Free_Block_Size();
+		ds_u64 Get_Largest_Free_Block_Size();
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		/**
 		 * Debug version of Allocate that tracks the allocation
 		 */
-		void* Allocate_Debug(destan_u64 size, destan_u64 alignment, const destan_char* file, int line);
+		void* Allocate_Debug(ds_u64 size, ds_u64 alignment, const ds_char* file, int line);
 
 		/**
 		 * Dumps the current state of the free list for debugging
@@ -200,7 +200,7 @@ namespace destan::core::memory
 		// Internal structure for block headers
 		struct Block_Header
 		{
-			destan_u64 size;           // Size of this block in bytes (including header)
+			ds_u64 size;           // Size of this block in bytes (including header)
 			bool is_free;              // Whether this block is free or allocated
 			Block_Header* next;        // Pointer to the next block in memory order
 			Block_Header* prev;        // Pointer to the previous block in memory order
@@ -209,27 +209,27 @@ namespace destan::core::memory
 			Block_Header* next_free;   // Next free block in the free list
 			Block_Header* prev_free;   // Previous free block in the free list
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 			// Debug properties
-			destan_u64 allocation_id;      // Unique ID for this allocation
-			const destan_char* file;       // Source file where allocation occured
-			destan_i32 line;               // Source line where allocation occured
-			static constexpr destan_u32 GUARD_PATTERN = 0xFDFDFDFD;  // Guard pattern
-			destan_u32 guard_value;        // Magic value to detect memory corruption
+			ds_u64 allocation_id;      // Unique ID for this allocation
+			const ds_char* file;       // Source file where allocation occured
+			ds_i32 line;               // Source line where allocation occured
+			static constexpr ds_u32 GUARD_PATTERN = 0xFDFDFDFD;  // Guard pattern
+			ds_u32 guard_value;        // Magic value to detect memory corruption
 #endif
 		};
 	private:
 
 		// Find a suitable block using the current allocation strategy
-		Block_Header* Find_Suitable_Block(destan_u64 size, destan_u64 alignment);
+		Block_Header* Find_Suitable_Block(ds_u64 size, ds_u64 alignment);
 
 		// Specific block finding strategies
-		Block_Header* Find_First_Fit(destan_u64 size, destan_u64 alignment);
-		Block_Header* Find_Best_Fit(destan_u64 size, destan_u64 alignment);
-		Block_Header* Find_Next_Fit(destan_u64 size, destan_u64 alignment);
+		Block_Header* Find_First_Fit(ds_u64 size, ds_u64 alignment);
+		Block_Header* Find_Best_Fit(ds_u64 size, ds_u64 alignment);
+		Block_Header* Find_Next_Fit(ds_u64 size, ds_u64 alignment);
 
 		// Split a block if there's enough space left after the allocation
-		Block_Header* Split_Block(Block_Header* block, destan_u64 size);
+		Block_Header* Split_Block(Block_Header* block, ds_u64 size);
 
 		// Remove a block from the free list
 		void Remove_From_Free_List(Block_Header* block);
@@ -247,68 +247,68 @@ namespace destan::core::memory
 		Block_Header* Get_Block_Header(void* ptr) const;
 
 		// Debug validation helpers
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		bool Validate_Block(Block_Header* block) const;
 		bool Validate_Free_List() const;
 #endif
 
 		// Memory management
 		void* m_memory_region = nullptr;         // Start of the memory region
-		destan_u64 m_size = 0;                   // Total size of the memory region
+		ds_u64 m_size = 0;                   // Total size of the memory region
 
 		// Block management
 		Block_Header* m_first_block = nullptr;   // First block in memory order
 		Block_Header* m_free_list = nullptr;     // Head of the free list
 		Block_Header* m_last_allocated = nullptr; // Last allocated block (for FIND_NEXT strategy)
-		destan_u64 m_free_block_count = 0;      // Number of free blocks
+		ds_u64 m_free_block_count = 0;      // Number of free blocks
 
 		// Allocation strategy
 		Allocation_Strategy m_strategy = Allocation_Strategy::FIND_BEST;
 
 		// Minimum block size to avoid excessive fragmentation
-		static constexpr destan_u64 MIN_BLOCK_SIZE =
+		static constexpr ds_u64 MIN_BLOCK_SIZE =
 			sizeof(Block_Header) + sizeof(void*) * 2; // Header + minimum usable size
 
 		std::mutex m_mutex;
 
 		// Fixed-size buffer for name
-		static constexpr destan_u64 MAX_NAME_LENGTH = 64;
-		destan_char m_name[MAX_NAME_LENGTH];
+		static constexpr ds_u64 MAX_NAME_LENGTH = 64;
+		ds_char m_name[MAX_NAME_LENGTH];
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
 		// Debug tracking for allocations
-		static std::atomic<destan_u64> s_next_allocation_id;
-		destan_u64 m_allocation_count = 0;       // Number of active allocations
+		static std::atomic<ds_u64> s_next_allocation_id;
+		ds_u64 m_allocation_count = 0;       // Number of active allocations
 #endif
 
 		// Thread safety helpers
 		void Lock()
 		{
-#ifdef DESTAN_THREAD_SAFE
+#ifdef DS_THREAD_SAFE
 			m_mutex.lock();
 #endif
 		}
 
 		void Unlock()
 		{
-#ifdef DESTAN_THREAD_SAFE
+#ifdef DS_THREAD_SAFE
 			m_mutex.unlock();
 #endif
 		}
 	};
 
 	// Helper macros for free list allocator
-#ifdef DESTAN_DEBUG
-#define DESTAN_FREE_LIST_ALLOC(allocator, size, alignment) \
+#ifdef DS_DEBUG
+#define DS_FREE_LIST_ALLOC(allocator, size, alignment) \
 		(allocator)->Allocate_Debug((size), (alignment), __FILE__, __LINE__)
 #else
-#define DESTAN_FREE_LIST_ALLOC(allocator, size, alignment) \
+#define DS_FREE_LIST_ALLOC(allocator, size, alignment) \
 		(allocator)->Allocate((size), (alignment))
 #endif
 
-#define DESTAN_FREE_LIST_CREATE(allocator, type, ...) \
+#define DS_FREE_LIST_CREATE(allocator, type, ...) \
 	(allocator)->Create<type>(__VA_ARGS__)
 
-#define DESTAN_FREE_LIST_DESTROY(allocator, ptr) \
+#define DS_FREE_LIST_DESTROY(allocator, ptr) \
 	(allocator)->Destroy(ptr)
 }

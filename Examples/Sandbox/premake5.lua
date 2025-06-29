@@ -32,8 +32,8 @@ project "DestanSandbox"
 
     -- Define precompiled header for C++ files only
     filter "files:src/**.cpp"
-        pchheader "core/destan_pch.h"
-        pchsource "%{wks.location}/Engine/Core/src/destan_pch.cpp"
+        pchheader "core/ds_pch.h"
+        pchsource "%{wks.location}/Engine/Core/src/ds_pch.cpp"
 
     -- Explicitly disable PCH for header files
     filter "files:**.h or **.hpp or **.inl"
@@ -47,14 +47,14 @@ project "DestanSandbox"
 
         defines
         {
-            "DESTAN_PLATFORM_WINDOWS",
+            "DS_PLATFORM_WINDOWS",
             "_CRT_SECURE_NO_WARNINGS"
         }
 
     filter "system:linux"
         defines
         {
-            "DESTAN_PLATFORM_LINUX"
+            "DS_PLATFORM_LINUX"
         }
 
         links
@@ -66,5 +66,5 @@ project "DestanSandbox"
     filter "system:macosx"
         defines
         {
-            "DESTAN_PLATFORM_MACOS"
+            "DS_PLATFORM_MACOS"
         }

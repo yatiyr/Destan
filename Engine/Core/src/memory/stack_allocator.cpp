@@ -1,15 +1,15 @@
-#include <core/destan_pch.h>
+#include <core/ds_pch.h>
 #include <core/memory/stack_allocator.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
-    Stack_Allocator::Stack_Allocator(destan_u64 size_bytes, const char* name)
+    Stack_Allocator::Stack_Allocator(ds_u64 size_bytes, const char* name)
         : m_size(size_bytes)
     {
         // Safely copy the name to our fixed buffer
         if (name)
         {
-            destan_u64 name_length = 0;
+            ds_u64 name_length = 0;
             while (name[name_length] && name_length < MAX_NAME_LENGTH - 1)
             {
                 m_name[name_length] = name[name_length];
@@ -20,8 +20,8 @@ namespace destan::core::memory
         else
         {
             // Default name if none provided
-            const destan_char* default_name = "Stack";
-            destan_u64 i = 0;
+            const ds_char* default_name = "Stack";
+            ds_u64 i = 0;
             while (default_name[i] && i < MAX_NAME_LENGTH - 1)
             {
                 m_name[i] = default_name[i];
@@ -31,28 +31,28 @@ namespace destan::core::memory
         }
 
         // Calculate total memory size needed
-        destan_u64 total_size = size_bytes;
+        ds_u64 total_size = size_bytes;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Add space for debug tracking in debug builds
-        destan_u64 debug_tracking_size = MAX_DEBUG_ALLOCATIONS * sizeof(Allocation_Info);
-        destan_u64 debug_tracking_aligned_size = Memory::Align_Size(debug_tracking_size, CACHE_LINE_SIZE);
+        ds_u64 debug_tracking_size = MAX_DEBUG_ALLOCATIONS * sizeof(Allocation_Info);
+        ds_u64 debug_tracking_aligned_size = Memory::Align_Size(debug_tracking_size, CACHE_LINE_SIZE);
         total_size += debug_tracking_aligned_size;
 #endif
 
         // Allocate the memory block with cache line alignment for optimal performance
         m_memory_block = Memory::Malloc(total_size, CACHE_LINE_SIZE);
-        DESTAN_ASSERT(m_memory_block, "Failed to allocate memory for Stack Allocator");
+        DS_ASSERT(m_memory_block, "Failed to allocate memory for Stack Allocator");
 
         // Initialize pointers (using offsets to simplify calculations)
-        m_start_pos = reinterpret_cast<destan_u64>(m_memory_block);
+        m_start_pos = reinterpret_cast<ds_u64>(m_memory_block);
         m_current_pos = m_start_pos;
         m_end_pos = m_start_pos + size_bytes;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Set up debug tracking array at the end of the stack
         m_debug_allocations = reinterpret_cast<Allocation_Info*>(
-            reinterpret_cast<destan_char*>(m_memory_block) + size_bytes
+            reinterpret_cast<ds_char*>(m_memory_block) + size_bytes
             );
 
         // Initialize debug allocation count
@@ -61,11 +61,11 @@ namespace destan::core::memory
         // Fill memory with pattern to help identify uninitialized memory
         Memory::Memset(m_memory_block, 0xCD, size_bytes); // 0xCD = "Clean Dynamic memory"
 
-        DESTAN_LOG_INFO("Stack allocator '{0}' created with {1} bytes (+ {2} bytes debug info)",
+        DS_LOG_INFO("Stack allocator '{0}' created with {1} bytes (+ {2} bytes debug info)",
             m_name, size_bytes, debug_tracking_aligned_size);
 #else
         // In release builds, just log basic information
-        DESTAN_LOG_INFO("Stack allocator '{0}' created with {1} bytes",
+        DS_LOG_INFO("Stack allocator '{0}' created with {1} bytes",
             m_name, total_size);
 #endif
     }
@@ -74,16 +74,16 @@ namespace destan::core::memory
     {
         // Free the memory block
         if (m_memory_block) {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
             // Check for leaks before freeing
             if (m_current_pos > m_start_pos)
             {
-                DESTAN_LOG_WARN("Stack '{0}' destroyed with {1} bytes still allocated",
+                DS_LOG_WARN("Stack '{0}' destroyed with {1} bytes still allocated",
                     m_name, m_current_pos - m_start_pos);
             }
 
             // Fill with pattern to catch use-after-free
-            destan_u64 stack_size = m_end_pos - m_start_pos;
+            ds_u64 stack_size = m_end_pos - m_start_pos;
             Memory::Memset(m_memory_block, 0xDD, stack_size); // 0xDD = "Dead Dynamic memory"
 #endif
 
@@ -112,14 +112,14 @@ namespace destan::core::memory
         other.m_end_pos = 0;
         other.m_size = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         // Debug allocations are part of the main memory allocation, so they moved with it
         // We just need to calculate their position in the new memory
         if (m_memory_block)
         {
-            destan_u64 stack_size = m_end_pos - m_start_pos;
+            ds_u64 stack_size = m_end_pos - m_start_pos;
             m_debug_allocations = reinterpret_cast<Allocation_Info*>(
-                reinterpret_cast<destan_char*>(m_memory_block) + stack_size
+                reinterpret_cast<ds_char*>(m_memory_block) + stack_size
                 );
             m_debug_allocation_count = other.m_debug_allocation_count;
         }
@@ -161,12 +161,12 @@ namespace destan::core::memory
             other.m_end_pos = 0;
             other.m_size = 0;
 
-#ifdef DESTAN_DEBUG
+#ifdef ds_DEBUG
             // Debug allocations are part of the main memory allocation, so they moved with it
             // We just need to calculate their position in the new memory
             if (m_memory_block)
             {
-                destan_u64 stack_size = m_end_pos - m_start_pos;
+                ds_u64 stack_size = m_end_pos - m_start_pos;
                 m_debug_allocations = reinterpret_cast<Allocation_Info*>(
                     reinterpret_cast<char*>(m_memory_block) + stack_size
                     );
@@ -185,17 +185,17 @@ namespace destan::core::memory
     }
 
 
-    void* Stack_Allocator::Allocate(destan_u64 size, destan_u64 alignment)
+    void* Stack_Allocator::Allocate(ds_u64 size, ds_u64 alignment)
     {
-#ifdef DESTAN_DEBUG
+#ifdef  DS_DEBUG
         Lock();
 #endif
 
         // Handle zero-size allocation
         if (size == 0)
         {
-#ifdef DESTAN_DEBUG
-            DESTAN_LOG_WARN("Stack '{0}': Attempted to allocate 0 bytes", m_name);
+#ifdef DS_DEBUG
+            DS_LOG_WARN("Stack '{0}': Attempted to allocate 0 bytes", m_name);
             Unlock();
 #endif
             return nullptr;
@@ -208,17 +208,17 @@ namespace destan::core::memory
         }
 
         // Verify alignment is a power of 2
-        DESTAN_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
+        DS_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
 
         // Calculate aligned address
-        destan_u64 aligned_pos = Align_Address(m_current_pos, alignment);
+        ds_u64 aligned_pos = Align_Address(m_current_pos, alignment);
 
         // Check if we have enough space
         if (aligned_pos + size > m_end_pos)
         {
             // Out of memory
-#ifdef DESTAN_DEBUG
-            DESTAN_LOG_ERROR("Stack '{0}' allocation failed: requested {1} bytes with {2} alignment, "
+#ifdef DS_DEBUG
+            DS_LOG_ERROR("Stack '{0}' allocation failed: requested {1} bytes with {2} alignment, "
                 "but only {3} bytes available",
                 m_name, size, alignment, m_end_pos - m_current_pos);
             Unlock();
@@ -227,21 +227,21 @@ namespace destan::core::memory
         }
 
         // Save the current position for the return value
-        destan_u64 result_pos = aligned_pos;
+        ds_u64 result_pos = aligned_pos;
 
         // Update current position
         m_current_pos = aligned_pos + size;
 
         void* result_pos_void = reinterpret_cast<void*>(result_pos);
 
-#ifdef DESTAN_DEBUG
+#ifdef  DS_DEBUG
         // Update debug info if allocation succeeded
         if (result_pos_void && m_debug_allocation_count < MAX_DEBUG_ALLOCATIONS)
         {
             // Track the allocation
             m_debug_allocations[m_debug_allocation_count++] =
             {
-                reinterpret_cast<destan_u64>(result_pos_void),  // position
+                reinterpret_cast<ds_u64>(result_pos_void),  // position
                 size,                               // size
                 alignment,                          // alignment
                 "",                               // file
@@ -250,7 +250,7 @@ namespace destan::core::memory
         }
         else if (result_pos_void && m_debug_allocation_count >= MAX_DEBUG_ALLOCATIONS)
         {
-            DESTAN_LOG_WARN("Stack '{0}': Debug allocation tracking limit reached ({1})",
+            DS_LOG_WARN("Stack '{0}': Debug allocation tracking limit reached ({1})",
                 m_name, MAX_DEBUG_ALLOCATIONS);
         }
         Unlock();
@@ -266,13 +266,13 @@ namespace destan::core::memory
     }
 
     void Stack_Allocator::Free_To_Marker(Marker marker, bool destruct_objects) {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         Lock();
 
         // Validate marker is within our stack
         if (marker < m_start_pos || marker > m_current_pos)
         {
-            DESTAN_LOG_ERROR("Stack '{0}': Invalid marker {1}", m_name, marker);
+            DS_LOG_ERROR("Stack '{0}': Invalid marker {1}", m_name, marker);
             Unlock();
             return;
         }
@@ -281,7 +281,7 @@ namespace destan::core::memory
         {
             // Call destructors in reverse order for objects allocated after this marker
             // We go backwards through debug allocations to maintain proper LIFO ordering
-            for (destan_i64 i = static_cast<destan_i64>(m_debug_allocation_count) - 1; i >= 0; --i)
+            for (ds_i64 i = static_cast<ds_i64>(m_debug_allocation_count) - 1; i >= 0; --i)
             {
                 if (m_debug_allocations[i].pos >= marker)
                 {
@@ -295,7 +295,7 @@ namespace destan::core::memory
                     Memory::Memset(ptr, 0xDD, m_debug_allocations[i].size);
 
                     // Remove from debug tracking
-                    if (i < static_cast<destan_i64>(m_debug_allocation_count) - 1) {
+                    if (i < static_cast<ds_i64>(m_debug_allocation_count) - 1) {
                         // Not the last element, move the last element into this slot
                         m_debug_allocations[i] = m_debug_allocations[m_debug_allocation_count - 1];
                     }
@@ -305,32 +305,32 @@ namespace destan::core::memory
         }
 
         // Fill freed memory with pattern in debug mode
-        destan_u64 freed_size = m_current_pos - marker;
+        ds_u64 freed_size = m_current_pos - marker;
         if (freed_size > 0)
         {
             Memory::Memset(reinterpret_cast<void*>(marker), 0xCD, freed_size);
         }
 
-        DESTAN_LOG_INFO("Stack '{0}' freed to marker: {1} bytes released", m_name, freed_size);
+        DS_LOG_INFO("Stack '{0}' freed to marker: {1} bytes released", m_name, freed_size);
 #endif
 
         // Reset current position to the marker
         m_current_pos = marker;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         Unlock();
 #endif
     }
 
     bool Stack_Allocator::Free_Latest()
     {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         Lock();
 
         // Check if stack is empty
         if (m_current_pos == m_start_pos)
         {
-            DESTAN_LOG_WARN("Stack '{0}': Cannot free latest allocation - stack is empty", m_name);
+            DS_LOG_WARN("Stack '{0}': Cannot free latest allocation - stack is empty", m_name);
             Unlock();
             return false;
         }
@@ -339,10 +339,10 @@ namespace destan::core::memory
         if (m_debug_allocation_count > 0)
         {
             // Find the allocation with the highest position (should be the most recent)
-            destan_u64 latest_allocation_index = 0;
-            destan_u64 highest_pos = 0;
+            ds_u64 latest_allocation_index = 0;
+            ds_u64 highest_pos = 0;
 
-            for (destan_u64 i = 0; i < m_debug_allocation_count; ++i)
+            for (ds_u64 i = 0; i < m_debug_allocation_count; ++i)
             {
                 if (m_debug_allocations[i].pos > highest_pos)
                 {
@@ -368,7 +368,7 @@ namespace destan::core::memory
             // Update current position
             m_current_pos = marker;
 
-            DESTAN_LOG_INFO("Stack '{0}' freed latest allocation: {1} bytes released",
+            DS_LOG_INFO("Stack '{0}' freed latest allocation: {1} bytes released",
                 m_name, highest_pos + m_debug_allocations[latest_allocation_index].size - marker);
 
             Unlock();
@@ -377,7 +377,7 @@ namespace destan::core::memory
 
         // If we get here in debug mode, we don't have debug info for any allocations
         // This would be strange, but we'll handle it by just resetting the stack
-        DESTAN_LOG_WARN("Stack '{0}': No debug info available for latest allocation", m_name);
+        DS_LOG_WARN("Stack '{0}': No debug info available for latest allocation", m_name);
         Reset();
 
         Unlock();
@@ -392,13 +392,13 @@ namespace destan::core::memory
 
     void Stack_Allocator::Reset(bool destruct_objects)
     {
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         Lock();
 
         if (destruct_objects && m_debug_allocation_count > 0)
         {
             // Call destructors in reverse order
-            for (destan_i64 i = static_cast<destan_i64>(m_debug_allocation_count) - 1; i >= 0; --i)
+            for (ds_i64 i = static_cast<ds_i64>(m_debug_allocation_count) - 1; i >= 0; --i)
             {
                 // Note: We don't actually call destructors because we don't track types
                 // This is where a more advanced system could store type information
@@ -414,29 +414,29 @@ namespace destan::core::memory
         m_debug_allocation_count = 0;
 
         // Fill memory with pattern to help identify uninitialized memory
-        destan_u64 used_size = m_current_pos - m_start_pos;
+        ds_u64 used_size = m_current_pos - m_start_pos;
         if (used_size > 0)
         {
             Memory::Memset(reinterpret_cast<void*>(m_start_pos), 0xCD, used_size);
         }
 
-        DESTAN_LOG_INFO("Stack '{0}' reset: {1} bytes freed", m_name, used_size);
+        DS_LOG_INFO("Stack '{0}' reset: {1} bytes freed", m_name, used_size);
 #endif
 
         // Reset current position to start
         m_current_pos = m_start_pos;
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
         Unlock();
 #endif
     }
 
-    destan_u64 Stack_Allocator::Align_Address(destan_u64 address, destan_u64 alignment) const
+    ds_u64 Stack_Allocator::Align_Address(ds_u64 address, ds_u64 alignment) const
     {
         return (address + alignment - 1) & ~(alignment - 1);
     }
 
-#ifdef DESTAN_DEBUG
+#ifdef DS_DEBUG
     void Stack_Allocator::Lock()
     {
         m_mutex.lock();
@@ -447,7 +447,7 @@ namespace destan::core::memory
         m_mutex.unlock();
     }
 
-    void* Stack_Allocator::Allocate_Debug(destan_u64 size, destan_u64 alignment, const char* file, int line)
+    void* Stack_Allocator::Allocate_Debug(ds_u64 size, ds_u64 alignment, const char* file, int line)
     {
         Lock();
 
@@ -460,7 +460,7 @@ namespace destan::core::memory
             // Track the allocation
             m_debug_allocations[m_debug_allocation_count++] =
             {
-                reinterpret_cast<destan_u64>(ptr),  // position
+                reinterpret_cast<ds_u64>(ptr),  // position
                 size,                               // size
                 alignment,                          // alignment
                 file,                               // file
@@ -469,7 +469,7 @@ namespace destan::core::memory
         }
         else if (ptr && m_debug_allocation_count >= MAX_DEBUG_ALLOCATIONS)
         {
-            DESTAN_LOG_WARN("Stack '{0}': Debug allocation tracking limit reached ({1})",
+            DS_LOG_WARN("Stack '{0}': Debug allocation tracking limit reached ({1})",
                 m_name, MAX_DEBUG_ALLOCATIONS);
         }
 
@@ -499,21 +499,21 @@ namespace destan::core::memory
             // Sort allocations by position to show them in order of allocation
             struct SortedAlloc
             {
-                destan_u64 index;
-                destan_u64 pos;
+                ds_u64 index;
+                ds_u64 pos;
             };
 
             SortedAlloc sorted[MAX_DEBUG_ALLOCATIONS];
-            for (destan_u64 i = 0; i < m_debug_allocation_count; ++i)
+            for (ds_u64 i = 0; i < m_debug_allocation_count; ++i)
             {
                 sorted[i] = { i, m_debug_allocations[i].pos };
             }
 
             // Simple insertion sort by position
-            for (destan_u64 i = 1; i < m_debug_allocation_count; ++i)
+            for (ds_u64 i = 1; i < m_debug_allocation_count; ++i)
             {
                 SortedAlloc key = sorted[i];
-                destan_i64 j = static_cast<destan_i64>(i) - 1;
+                ds_i64 j = static_cast<ds_i64>(i) - 1;
 
                 while (j >= 0 && sorted[j].pos > key.pos) {
                     sorted[j + 1] = sorted[j];
@@ -522,12 +522,12 @@ namespace destan::core::memory
                 sorted[j + 1] = key;
             }
 
-            const destan_u64 MAX_ALLOCATIONS_TO_SHOW = 20; // Limit for readability
-            const destan_u64 allocations_to_show =
+            const ds_u64 MAX_ALLOCATIONS_TO_SHOW = 20; // Limit for readability
+            const ds_u64 allocations_to_show =
                 (m_debug_allocation_count <= MAX_ALLOCATIONS_TO_SHOW) ?
                 m_debug_allocation_count : MAX_ALLOCATIONS_TO_SHOW;
 
-            for (destan_u64 i = 0; i < allocations_to_show; ++i)
+            for (ds_u64 i = 0; i < allocations_to_show; ++i)
             {
                 const auto& alloc = m_debug_allocations[sorted[i].index];
                 ss << "  " << std::setw(8) << alloc.size << " | "
@@ -550,7 +550,7 @@ namespace destan::core::memory
         }
 
         ss << "==============================================";
-        DESTAN_LOG_INFO("{}", ss.str());
+        DS_LOG_INFO("{}", ss.str());
 
         Unlock();
     }

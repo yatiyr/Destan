@@ -1,7 +1,7 @@
 #pragma once
 #include <core/memory/allocator_interface.h>
 
-namespace destan::core::memory
+namespace ds::core::memory
 {
     // Default Allocator Adapter - Uses the core Memory system
     template<typename T>
@@ -10,12 +10,12 @@ namespace destan::core::memory
     public:
         Default_Allocator() = default;
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             return static_cast<T*>(Memory::Malloc(sizeof(T) * n, alignof(T)));
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             Memory::Free(p);
         }
@@ -31,12 +31,12 @@ namespace destan::core::memory
     public:
         Arena_Allocator_Adapter(Arena_Allocator& allocator) : m_allocator(allocator) {}
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             return static_cast<T*>(m_allocator.Allocate(sizeof(T) * n, alignof(T)));
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             // Arena allocator doesn't support individual deallocations
             // No operation needed
@@ -54,20 +54,20 @@ namespace destan::core::memory
         Pool_Allocator_Adapter(Pool_Allocator& allocator) : m_allocator(allocator)
         {
             // Verify that pool block size is sufficient for type T
-            DESTAN_ASSERT(allocator.Get_Block_Size() >= sizeof(T),
+            DS_ASSERT(allocator.Get_Block_Size() >= sizeof(T),
                 "Pool block size too small for type T");
-            DESTAN_ASSERT(allocator.Get_Block_Alignment() >= alignof(T),
+            DS_ASSERT(allocator.Get_Block_Alignment() >= alignof(T),
                 "Pool block alignment insufficient for type T");
         }
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             // Pool allocator only supports single object allocation
-            DESTAN_ASSERT(n == 1, "Pool allocator only supports single object allocation");
+            DS_ASSERT(n == 1, "Pool allocator only supports single object allocation");
             return static_cast<T*>(m_allocator.Allocate());
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             m_allocator.Deallocate(p);
         }
@@ -82,14 +82,14 @@ namespace destan::core::memory
         struct Allocation_Info
         {
             T* ptr;
-            destan_u64 count;
+            ds_u64 count;
         };
         std::vector<Allocation_Info> m_allocations; // Tracks allocations for LIFO enforcement
 
     public:
         Stack_Allocator_Adapter(Stack_Allocator& allocator) : m_allocator(allocator) {}
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             T* result = static_cast<T*>(m_allocator.Allocate(sizeof(T) * n, alignof(T)));
 
@@ -99,12 +99,12 @@ namespace destan::core::memory
             return result;
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             // Ensure LIFO ordering is maintained
             if (m_allocations.empty() || m_allocations.back().ptr != p)
             {
-                DESTAN_LOG_ERROR("Stack allocator deallocations must follow LIFO ordering");
+                DS_LOG_ERROR("Stack allocator deallocations must follow LIFO ordering");
                 return;
             }
 
@@ -129,12 +129,12 @@ namespace destan::core::memory
     public:
         Free_List_Allocator_Adapter(Free_List_Allocator& allocator) : m_allocator(allocator) {}
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             return static_cast<T*>(m_allocator.Allocate(sizeof(T) * n, alignof(T)));
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             m_allocator.Deallocate(p);
         }
@@ -161,12 +161,12 @@ namespace destan::core::memory
         {
         }
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             // Page allocators typically work with larger blocks
             // We'll round up to the nearest page size if necessary
-            destan_u64 size = sizeof(T) * n;
-            destan_u64 page_size = m_allocator.Get_Page_Size();
+            ds_u64 size = sizeof(T) * n;
+            ds_u64 page_size = m_allocator.Get_Page_Size();
 
             if (size < page_size)
             {
@@ -181,7 +181,7 @@ namespace destan::core::memory
             return static_cast<T*>(m_allocator.Allocate(size, m_protection, m_flags));
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             m_allocator.Deallocate(p);
         }
@@ -206,10 +206,10 @@ namespace destan::core::memory
         {
         }
 
-        T* allocate(destan_u64 n) override
+        T* allocate(ds_u64 n) override
         {
             // Create a unique resource path for this allocation
-            static destan_u64 next_id = 1;
+            static ds_u64 next_id = 1;
             std::string path = "memory://" + std::to_string(next_id++);
 
             // Request the resource
@@ -242,7 +242,7 @@ namespace destan::core::memory
             return data;
         }
 
-        void deallocate(T* p, destan_u64 n) override
+        void deallocate(T* p, ds_u64 n) override
         {
             auto it = m_handles.find(p);
             if (it != m_handles.end())

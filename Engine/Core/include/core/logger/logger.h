@@ -12,7 +12,7 @@
 #include <regex>
 #include <core/logger/console_format.h>
 
-namespace destan::core
+namespace ds::core
 {
     // Forward declarations
     enum class Logger_Theme;
@@ -212,24 +212,24 @@ namespace destan::core
 }
 
 // Macros for logging with format strings
-#define DESTAN_LOG_TRACE(...) destan::core::Logger::Trace(__VA_ARGS__)
-#define DESTAN_LOG_INFO(...) destan::core::Logger::Info(__VA_ARGS__)
-#define DESTAN_LOG_WARN(...) destan::core::Logger::Warn(__VA_ARGS__)
-#define DESTAN_LOG_ERROR(...) destan::core::Logger::Error(__VA_ARGS__)
-#define DESTAN_LOG_FATAL(...) destan::core::Logger::Fatal(__VA_ARGS__)
+#define DS_LOG_TRACE(...) ds::core::Logger::Trace(__VA_ARGS__)
+#define DS_LOG_INFO(...) ds::core::Logger::Info(__VA_ARGS__)
+#define DS_LOG_WARN(...) ds::core::Logger::Warn(__VA_ARGS__)
+#define DS_LOG_ERROR(...) ds::core::Logger::Error(__VA_ARGS__)
+#define DS_LOG_FATAL(...) ds::core::Logger::Fatal(__VA_ARGS__)
 
 // Macros for logging plain text (e.g., string streams)
-#define DESTAN_LOG_TRACE_TEXT(message) destan::core::Logger::Trace_Text(message)
-#define DESTAN_LOG_INFO_TEXT(message) destan::core::Logger::Info_Text(message)
-#define DESTAN_LOG_WARN_TEXT(message) destan::core::Logger::Warn_Text(message)
-#define DESTAN_LOG_ERROR_TEXT(message) destan::core::Logger::Error_Text(message)
-#define DESTAN_LOG_FATAL_TEXT(message) destan::core::Logger::Fatal_Text(message)
+#define DS_LOG_TRACE_TEXT(message) ds::core::Logger::Trace_Text(message)
+#define DS_LOG_INFO_TEXT(message) ds::core::Logger::Info_Text(message)
+#define DS_LOG_WARN_TEXT(message) ds::core::Logger::Warn_Text(message)
+#define DS_LOG_ERROR_TEXT(message) ds::core::Logger::Error_Text(message)
+#define DS_LOG_FATAL_TEXT(message) ds::core::Logger::Fatal_Text(message)
 
 // Macros for assertions, tied to logging that's why they are defined here
-#ifdef DESTAN_ENABLE_ASSERTS
-#define DESTAN_ASSERT(x, ...) { if(!(x)) { DESTAN_LOG_ERROR("Assertion Failed: {0}", __VA_ARGS__); DESTAN_DEBUGBREAK(); } }
-#define DESTAN_CORE_ASSERT(x, ...) { if(!(x)) { DESTAN_LOG_ERROR("Assertion Failed: {0}", __VA_ARGS__); DESTAN_DEBUGBREAK(); } }
+#ifdef DS_ENABLE_ASSERTS
+#define DS_ASSERT(x, ...) { if(!(x)) { DS_LOG_ERROR("Assertion Failed: {0}", __VA_ARGS__); DS_DEBUGBREAK(); } }
+#define DS_CORE_ASSERT(x, ...) { if(!(x)) { DS_LOG_ERROR("Assertion Failed: {0}", __VA_ARGS__); DS_DEBUGBREAK(); } }
 #else
-#define DESTAN_ASSERT(x, ...)
-#define DESTAN_CORE_ASSERT(x, ...)
+#define DS_ASSERT(x, ...)
+#define DS_CORE_ASSERT(x, ...)
 #endif

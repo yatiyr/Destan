@@ -5,7 +5,7 @@
 #include <initializer_list>
 #include <iterator>
 
-namespace destan::core::containers
+namespace ds::core::containers
 {
 	/**
 	 * DVector - Dynamic array container implementation
@@ -23,8 +23,8 @@ namespace destan::core::containers
 		// Type definitions
 		using value_type      = T;
 		using allocator_type  = Allocator;
-		using size_type       = destan_u64;
-		using difference_type = destan_i64;
+		using size_type       = ds_u64;
+		using difference_type = ds_i64;
 		using reference       = value_type&;
 		using const_reference = const value_type&;
 		using pointer         = T*;
@@ -38,7 +38,7 @@ namespace destan::core::containers
 		public:
 			using iterator_category = std::random_access_iterator_tag;
 			using value_type      = T;
-			using difference_type = destan_i64;
+			using difference_type = ds_i64;
 			using pointer         = T*;
 			using reference       = T&;
 
@@ -83,7 +83,7 @@ namespace destan::core::containers
 		public:
 			using iterator_category = std::random_access_iterator_tag;
 			using value_type = T;
-			using difference_type = destan_i64;
+			using difference_type = ds_i64;
 			using pointer = const T*;
 			using reference = const T&;
 
@@ -589,7 +589,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::reference DVector<T, Allocator>::operator[](size_type pos)
     {
         // Access without bounds checking (but with assert in debug)
-        DESTAN_ASSERT(pos < m_size, "DVector::operator[] - Index out of bounds");
+        DS_ASSERT(pos < m_size, "DVector::operator[] - Index out of bounds");
         return m_data[pos];
     }
 
@@ -597,7 +597,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::const_reference DVector<T, Allocator>::operator[](size_type pos) const
     {
         // Const access without bounds checking (but with assert in debug)
-        DESTAN_ASSERT(pos < m_size, "DVector::operator[] - Index out of bounds");
+        DS_ASSERT(pos < m_size, "DVector::operator[] - Index out of bounds");
         return m_data[pos];
     }
 
@@ -605,7 +605,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::reference DVector<T, Allocator>::front()
     {
         // Access first element
-        DESTAN_ASSERT(m_size > 0, "DVector::front - Vector is empty");
+        DS_ASSERT(m_size > 0, "DVector::front - Vector is empty");
         return m_data[0];
     }
 
@@ -613,7 +613,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::const_reference DVector<T, Allocator>::front() const
     {
         // Const access first element
-        DESTAN_ASSERT(m_size > 0, "DVector::front - Vector is empty");
+        DS_ASSERT(m_size > 0, "DVector::front - Vector is empty");
         return m_data[0];
     }
 
@@ -621,7 +621,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::reference DVector<T, Allocator>::back()
     {
         // Access last element
-        DESTAN_ASSERT(m_size > 0, "DVector::back - Vector is empty");
+        DS_ASSERT(m_size > 0, "DVector::back - Vector is empty");
         return m_data[m_size - 1];
     }
 
@@ -629,7 +629,7 @@ namespace destan::core::containers
     typename DVector<T, Allocator>::const_reference DVector<T, Allocator>::back() const
     {
         // Const access last element
-        DESTAN_ASSERT(m_size > 0, "DVector::back - Vector is empty");
+        DS_ASSERT(m_size > 0, "DVector::back - Vector is empty");
         return m_data[m_size - 1];
     }
 
@@ -799,7 +799,7 @@ namespace destan::core::containers
     {
         // Calculate position index
         size_type index = pos - cbegin();
-        DESTAN_ASSERT(index <= m_size, "DVector::insert - Invalid position");
+        DS_ASSERT(index <= m_size, "DVector::insert - Invalid position");
 
         // Check if we need to reallocate
         if (m_size == m_capacity) {
@@ -825,7 +825,7 @@ namespace destan::core::containers
     {
         // Calculate position index
         size_type index = pos - cbegin();
-        DESTAN_ASSERT(index <= m_size, "DVector::insert - Invalid position");
+        DS_ASSERT(index <= m_size, "DVector::insert - Invalid position");
 
         // Check if we need to reallocate
         if (m_size == m_capacity) {
@@ -851,7 +851,7 @@ namespace destan::core::containers
     {
         // Calculate position index
         size_type index = pos - cbegin();
-        DESTAN_ASSERT(index <= m_size, "DVector::insert - Invalid position");
+        DS_ASSERT(index <= m_size, "DVector::insert - Invalid position");
 
         if (count == 0) {
             return iterator(m_data + index);
@@ -887,7 +887,7 @@ namespace destan::core::containers
     {
         // Calculate position index
         size_type index = pos - cbegin();
-        DESTAN_ASSERT(index <= m_size, "DVector::emplace - Invalid position");
+        DS_ASSERT(index <= m_size, "DVector::emplace - Invalid position");
 
         // Check if we need to reallocate
         if (m_size == m_capacity) {
@@ -913,7 +913,7 @@ namespace destan::core::containers
     {
         // Calculate position index
         size_type index = pos - cbegin();
-        DESTAN_ASSERT(index < m_size, "DVector::erase - Invalid position");
+        DS_ASSERT(index < m_size, "DVector::erase - Invalid position");
 
         // Destroy the element at position
         m_allocator.destroy(m_data + index);
@@ -935,7 +935,7 @@ namespace destan::core::containers
         size_type start_index = first - cbegin();
         size_type end_index = last - cbegin();
 
-        DESTAN_ASSERT(start_index <= end_index && end_index <= m_size, "DVector::erase - Invalid range");
+        DS_ASSERT(start_index <= end_index && end_index <= m_size, "DVector::erase - Invalid range");
 
         if (start_index == end_index) {
             return iterator(m_data + start_index);
@@ -1009,7 +1009,7 @@ namespace destan::core::containers
     void DVector<T, Allocator>::pop_back()
     {
         // Remove last element
-        DESTAN_ASSERT(m_size > 0, "DVector::pop_back - Vector is empty");
+        DS_ASSERT(m_size > 0, "DVector::pop_back - Vector is empty");
 
         --m_size;
         m_allocator.destroy(m_data + m_size);
@@ -1142,4 +1142,4 @@ namespace destan::core::containers
     }
 
 
-} // namespace destan::core::containers
+} // namespace ds::core::containers
